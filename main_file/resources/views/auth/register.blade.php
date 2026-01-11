@@ -21,63 +21,93 @@
 
         <div class="row">
             <div class="d-flex justify-content-center">
-                <div class="auth-header">
-                    <h2 class="text-secondary"><b>{{ __('Sign up') }}</b></h2>
-                    <p class="f-16 mt-2">{{ __('Enter your details and create account') }}</p>
+                <div class="auth-header text-center">
+                    <h2 class="text-secondary">
+                        <b>{{ __('Sign up') }}</b>
+                    </h2>
+                    <p class="f-16 mt-2">
+                        {{ __('Enter your details and create account') }}
+                    </p>
                 </div>
             </div>
         </div>
 
-        {{ Form::open(['route' => 'register', 'method' => 'post', 'id' => 'registerForm']) }}
-        {{ csrf_field() }}
+        {{ Form::open(['route' => 'members.register.store', 'method' => 'post', 'id' => 'registerForm']) }}
+        @csrf
 
         {{-- Alerts --}}
         @if (session('error'))
             <div class="alert alert-danger">{{ session('error') }}</div>
         @endif
+
         @if (session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif
 
         {{-- Name --}}
         <div class="form-floating mb-3">
-            <input type="text" class="form-control" name="name" value="{{ old('name') }}"
-                placeholder="{{ __('Name') }}">
+            <input type="text"
+                   class="form-control"
+                   name="name"
+                   value="{{ old('name') }}"
+                   placeholder="{{ __('Name') }}"
+                   required>
             <label>{{ __('Name') }}</label>
             @error('name') <span class="text-danger">{{ $message }}</span> @enderror
         </div>
 
         {{-- Email --}}
         <div class="form-floating mb-3">
-            <input type="email" class="form-control" name="email" value="{{ old('email') }}"
-                placeholder="{{ __('Email address') }}">
+            <input type="email"
+                   class="form-control"
+                   name="email"
+                   value="{{ old('email') }}"
+                   placeholder="{{ __('Email address') }}"
+                   required>
             <label>{{ __('Email address') }}</label>
             @error('email') <span class="text-danger">{{ $message }}</span> @enderror
         </div>
 
         {{-- Password --}}
         <div class="form-floating mb-3">
-           -control" name="password"
-                placeholder="{{ __('Password') }}">
+            <input type="password"
+                   class="form-control"
+                   name="password"
+                   placeholder="{{ __('Password') }}"
+                   required minlength="12">
             <label>{{ __('Password') }}</label>
             @error('password') <span class="text-danger">{{ $message }}</span> @enderror
         </div>
 
         {{-- Confirm Password --}}
         <div class="form-floating mb-3">
-            <input type="password" class="form-control" name="password_confirmation"
-                placeholder="{{ __('Password Confirmation') }}">
+            <input type="password"
+                   class="form-control"
+                   name="password_confirmation"
+                   placeholder="{{ __('Password Confirmation') }}"
+                   required>
             <label>{{ __('Password Confirmation') }}</label>
         </div>
 
         {{-- Terms --}}
         <div class="form-check mt-3">
-            <input class="form-check-input input-primary" type="checkbox" id="agree" name="agree" {{ old('agree') ? 'checked' : '' }}>
+            <input class="form-check-input input-primary"
+                   type="checkbox"
+                   id="agree"
+                   name="acceptTerms"
+                   {{ old('acceptTerms') ? 'checked' : '' }}
+                   required>
+
             <label class="form-check-label" for="agree">
                 {{ __('I agree to the') }}
-                <a href="{{ route('page', 'terms-and-conditions') }}">{{ __('Terms and Conditions') }}</a>
+                <a href="{{ route('page', 'terms-and-conditions') }}">
+                    {{ __('Terms and Conditions') }}
+                </a>
             </label>
-            @error('agree') <span class="text-danger d-block">{{ $message }}</span> @enderror
+
+            @error('acceptTerms')
+                <span class="text-danger d-block">{{ $message }}</span>
+            @enderror
         </div>
 
         {{-- reCAPTCHA --}}
@@ -106,7 +136,7 @@
         </h5>
 
         {{ Form::close() }}
+
     </div>
 </div>
 @endsection
-

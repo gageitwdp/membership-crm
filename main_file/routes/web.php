@@ -51,6 +51,10 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 require __DIR__ . '/auth.php';
 
 
+// routes/web.php
+Route::get('/main_file', fn () => redirect('/main_file/login'))->middleware(['XSS']);
+Route::get('/main_file/', fn () => redirect('/main_file/login'))->middleware(['XSS']);
+
 Route::get('/', [HomeController::class, 'index'])->middleware(
     [
 

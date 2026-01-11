@@ -1,0 +1,10 @@
+.env
+default.php
+documentation/
+main_file/.editorconfig
+main_file/.env
+main_file/.env.example
+main_file/.gitattributes
+main_file/.gitignore
+main_file/.htaccess
+main_file/.styleci.yml

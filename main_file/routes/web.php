@@ -1,9 +1,5 @@
 <?php
 
-namespace App\Http\Requests;
-
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\AuthPageController;
 use Illuminate\Support\Facades\Route;
@@ -35,7 +31,6 @@ use App\Http\Controllers\MembershipPlanController;
 use App\Http\Controllers\MembershipSuspensionController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Auth\RegisteredUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,7 +44,6 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 */
 
 require __DIR__ . '/auth.php';
-
 
 Route::get('/', [HomeController::class, 'index'])->middleware(
     [
@@ -457,50 +451,3 @@ Route::group(
 
 //-------------------------------FAQ-------------------------------------------
 Route::impersonate();
-
-/*
-|--------------------------------------------------------------------------
-| Guest-only routes
-|--------------------------------------------------------------------------
-*/
-Route::middleware('guest')->group(function () {
-    // Registration page users visit from the login screen
-    Route::get('/main_file/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'create'])
-        ->name('members.register');
-
-    // Registration form submission endpoint
-    Route::post('/api/auth/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'store'])
-        ->name('members.register.store')
-        ->middleware('throttle:10,1');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Email verification
-|--------------------------------------------------------------------------
-*/
-Route::middleware('auth')->group(function () {
-    Route::get('/email/verify', function () {
-        return view('auth.verify-email');
-    })->name('verification.notice');
-
-    Route::post('/email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return back()->with('status', 'verification-link-sent');
-    })->middleware('throttle:6,1')->name('verification.send');
-});
-
-Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-    $user = \App\Models\User::findOrFail($id);
-
-    if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-        abort(403);
-    }
-
-    if (! $user->hasVerifiedEmail()) {
-        $user->markEmailAsVerified();
-        event(new \Illuminate\Auth\Events\Verified($user));
-    }
-
-    return redirect('/main_file/login?verified=1');
-})->middleware(['signed'])->name('verification.verify');

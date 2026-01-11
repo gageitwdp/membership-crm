@@ -57,7 +57,7 @@
             </div>
             <div class="d-flex mt-1 justify-content-between">
                 <div class="form-check">
-                    <input class="form-check-input input-primary" type="checkbox" id="agree" name="remember"
+                    <input class="form-check-input input-primary" type="checkbox" id="agree"
                         {{ old('remember') ? 'checked' : '' }} />
                     <label class="form-check-label text-muted" for="agree">{{ __('Remember me') }}</label>
                 </div>
@@ -84,19 +84,12 @@
             <div class="d-grid mt-4">
                 <button type="submit" class="btn btn-secondary p-2">{{ __('Sign In') }}</button>
             </div>
-            
-@if ($registerPage == 'on')
-    <hr />
-    <h5 class="d-flex justify-content-center">
-        {{ __("Don't Have An Account?") }}
-
-        <a href="{{ route('members.register') }}"
-           class="ms-1 text-secondary">
-            {{ __('Create an account') }}
-        </a>
-    </h5>
-@endif
-
+            @if ($registerPage == 'on')
+                <hr />
+                <h5 class="d-flex justify-content-center">{{ __("Don't Have An Account?") }} <a class="ms-1 text-secondary"
+                        href="{{ route('register') }}">{{ __('Create an account') }}</a>
+                </h5>
+            @endif
             {{ Form::close() }}
         </div>
     </div>

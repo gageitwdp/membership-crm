@@ -8,3 +8,39 @@ main_file/.gitattributes
 main_file/.gitignore
 main_file/.htaccess
 main_file/.styleci.yml
+
+
+# Laravel
+/vendor/
+.env
+.phpunit.result.cache
+/storage/*
+!/storage/.gitignore
+/bootstrap/cache/*
+/public/storage
+
+# Logs
+*.log
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Node
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs (adjust based on your tooling)
+public/build/
+public/js/*.map
+public/css/*.map
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+

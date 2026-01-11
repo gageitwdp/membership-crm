@@ -51,10 +51,6 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 require __DIR__ . '/auth.php';
 
 
-// routes/web.php
-Route::get('/main_file', fn () => redirect('/main_file/login'))->middleware(['XSS']);
-Route::get('/main_file/', fn () => redirect('/main_file/login'))->middleware(['XSS']);
-
 Route::get('/', [HomeController::class, 'index'])->middleware(
     [
 
@@ -468,11 +464,13 @@ Route::impersonate();
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
-    Route::get('/main_file/register', [RegisteredUserController::class, 'create'])
-        ->name('register');
+    // Registration page users visit from the login screen
+    Route::get('/main_file/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'create'])
+        ->name('members.register');
 
-    Route::post('/api/auth/register', [RegisteredUserController::class, 'store'])
-        ->name('register.store')
+    // Registration form submission endpoint
+    Route::post('/api/auth/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'store'])
+        ->name('members.register.store')
         ->middleware('throttle:10,1');
 });
 

@@ -1,52 +1,50 @@
+
 <?php
+
 namespace App\Http\Controllers\Auth;
+
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
 
 class RegisteredUserController extends Controller
 {
     public function create()
     {
-        if (getSettingsValByName('register_page') !== 'on') {
-            abort(404);
-        }
-
         return view('auth.register');
     }
 
-    public function store(Request $request)
+    public function store(RegisterRequest $request)
     {
-        $settings = settings();
-
-        $rules = [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'agree' => ['accepted'],
-        ];
-
-        if (($settings['google_recaptcha'] ?? null) === 'on') {
-            $rules['g-recaptcha-response'] = ['required', 'captcha'];
-        }
-
-        $validated = $request->validate($rules);
-
+        // Do NOT read type/role from the request.
+        // Force all self-signups to be members.
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'name'              => $request->name,            // if you collect 'name'
+            'email'             => $request->email,
+            'password'          => Hash::make($request->password),
+            'first_name'        => $request->first_name ?? null,
+            'last_name'         => $request->last_name ?? null,
+            'type'              => 'member',                  // ← critical
+            'role'              => 'member',                  // optional (string field)
+            'status'            => 'active',                  // optional
+            'is_active'         => 1,                         // optional if you use it
+            'terms_accepted_at' => now(),
+            // If you need tenant/parent scoping, set parent_id here (e.g., from app settings).
+            // 'parent_id'      => $someTenantId,
         ]);
 
+        // Apply Spatie role (uses HasRoles). Ensures permission guard is 'web'.
+        // Make sure the 'member' role exists (see seeder section below).
+        if (method_exists($user, 'assignRole')) {
+            $user->assignRole('member');
+        }
+
+        // Trigger Laravel's built-in email verification
         event(new Registered($user));
 
-        auth()->login($user);
-
-        // Change 'dashboard' to your intended landing route after signup
-        return redirect()->route('dashboard')->with('success', __('Account created successfully!'));
+        return redirect('/main_file/login')
+            ->with('status', __('Registration successful. Please verify your email.'));
     }
 }
-

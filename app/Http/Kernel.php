@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http;
 
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
@@ -8,7 +7,6 @@ class Kernel extends HttpKernel
 {
     /**
      * The application's global HTTP middleware stack.
-     *
      * These middleware are run during every request to your application.
      *
      * @var array<int, class-string|string>
@@ -36,7 +34,7 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \App\Http\Middleware\Verify2FA::class
+            // IMPORTANT: Verify2FA removed from global web group
         ],
 
         'api' => [
@@ -48,7 +46,6 @@ class Kernel extends HttpKernel
 
     /**
      * The application's route middleware.
-     *
      * These middleware may be assigned to groups or used individually.
      *
      * @var array<string, class-string|string>
@@ -65,6 +62,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'XSS' => \App\Http\Middleware\XSS::class,
-
+        // Add Verify2FA as route middleware (use key '2fa')
+        '2fa' => \App\Http\Middleware\Verify2FA::class,
     ];
 }

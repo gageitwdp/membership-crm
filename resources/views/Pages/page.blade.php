@@ -2,8 +2,6 @@
     $routeName = \Request::route()->getName();
     $routeParameters = request()->route()->parameters;
     $settings = settings();
-    $user = \App\Models\User::find(1);
-    \App::setLocale($user->lang);
     $menus = \App\Models\Page::where('enabled', 1)->get();
 @endphp
 <!DOCTYPE html>

@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Permission\Models\Role;
 use Illuminate\Support\Str;
+use Throwable;
 
 class MemberController extends Controller
 {
@@ -34,14 +34,12 @@ class MemberController extends Controller
      */
     public function index()
     {
-        if (Auth::user()->can('manage member')) {
+        if (Auth::user() && Auth::user()->can('manage member')) {
             $members = Member::where('parent_id', '=', parentId())
                 ->orderBy('id', 'desc')
                 ->get();
-
             return view('member.index', compact('members'));
         }
-
         return redirect()->back()->with('error', __('Permission Denied.'));
     }
 
@@ -51,15 +49,12 @@ class MemberController extends Controller
      */
     public function create()
     {
-        // For guest access, parentId() must resolve without Auth.
-        // If it cannot, fall back to an empty list with "Select Plan".
         try {
             $membership = MembershipPlan::where('parent_id', parentId())->pluck('plan_name', 'id');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $membership = collect();
         }
 
-        // Prepend "Select Plan" option
         if ($membership instanceof \Illuminate\Support\Collection && $membership->isNotEmpty()) {
             $membership->prepend('Select Plan', '');
         } else {
@@ -70,77 +65,74 @@ class MemberController extends Controller
     }
 
     /**
-<<<<<<< HEAD
      * Public: handle form submission and create the member + user account.
      */
-=======
-     * Public-facing create form for members.
-     * Route: GET  /public/member/create  -> name: member.public.create
-     */
-    public function publicCreate()
+    public function store(Request $request)
     {
-        $parent = auth()->check() ? parentId() : 1;
+        // Simple honeypot: bots often fill hidden fields; users won't.
+        if ($request->filled('website')) {
+            return back()->withErrors(['form' => 'Spam detected'])->withInput();
+        }
 
-        $membership = MembershipPlan::where('parent_id', $parent)->pluck('plan_name', 'id');
-        $membership->prepend('Select Plan', '');
-
-        return view('member.public_create', compact('membership'));
-    }
-
-    /**
-     * Public-facing store action.
-     * Route: POST /public/member -> name: member.public.store
-     */
-    public function publicStore(Request $request)
-    {
-        $validator = \Validator::make(
+        // Validate input (added password + tighter email rules)
+        $validator = Validator::make(
             $request->all(),
             [
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'phone' => 'required|string|max:50',
+                'first_name' => 'required|string|max:100',
+                'last_name' => 'required|string|max:100',
+                'email' => 'required|email:rfc,dns|max:255|unique:users,email',
+                'phone' => 'required|string|max:30',
                 'dob' => 'required|date',
-                'address' => 'required|string',
-                'password' => 'required|string|min:6|confirmed', // requires password_confirmation field
-                'image' => 'nullable|image|max:2048',
+                'address' => 'required|string|max:255',
+                'password' => 'required|string|min:8',
+                'gender' => 'nullable|string|max:20',
+                'emergency_contact_information' => 'nullable|string|max:255',
+                'notes' => 'nullable|string|max:2000',
+                'membership_part' => 'nullable|string|max:255',
+                'image' => 'nullable|image|max:5120', // 5MB
+                'plan_id' => 'nullable|exists:membership_plans,id',
+                'start_date' => 'nullable|date',
+                'expiry_date' => 'nullable|date|after_or_equal:start_date',
+                'status' => 'nullable|in:Active,Inactive,Paid,Unpaid',
             ]
         );
 
         if ($validator->fails()) {
-            $messages = $validator->getMessageBag();
-            return redirect()->back()->withInput()->with('error', $messages->first());
+            return redirect()->back()->with('error', $validator->getMessageBag()->first())->withInput();
         }
 
-        $parent = auth()->check() ? parentId() : 1;
-
-        // Find role for parent, fall back to any 'member' role
-        $userRole = Role::where('name', 'member')->where('parent_id', $parent)->first();
-        if (!$userRole) {
-            $userRole = Role::where('name', 'member')->first();
+        // Enforce subscription member limit if applicable (assumes parentId() works for guests)
+        $tenantId = parentId();
+        $authUser = User::find($tenantId);
+        if ($authUser) {
+            $totalMember = $authUser->totalMembers();
+            $subscription = Subscription::find($authUser->subscription);
+            if ($subscription && $subscription->member_limit != 0 && $totalMember >= $subscription->member_limit) {
+                return redirect()->back()->with('error', __('Your member limit is over, please upgrade your subscription.'));
+            }
         }
 
+        // Ensure a "member" role exists for the tenant (optional; assign if found)
+        $userRole = \Spatie\Permission\Models\Role::where('name', 'member')->where('parent_id', $tenantId)->first();
+
+        // Create User
         $user = new User();
-        $user->name = $request->first_name . ($request->last_name ? ' ' . $request->last_name : '');
+        $user->name = $request->first_name;
         $user->email = $request->email;
         $user->phone_number = $request->phone;
         $user->password = Hash::make($request->password);
         $user->type = $userRole ? $userRole->name : 'member';
         $user->profile = 'avatar.png';
         $user->lang = 'english';
-        $user->parent_id = $parent;
-        // For public signup we mark email as verified; change if you want verification flow
+        $user->parent_id = $tenantId;
         $user->email_verified_at = now();
         $user->save();
 
         if ($userRole) {
-            try {
-                $user->assignRole($userRole);
-            } catch (\Exception $e) {
-                // swallow role assignment errors so signup still completes
-            }
+            $user->assignRole($userRole);
         }
 
+        // Create Member
         $Member = new Member();
         $Member->member_id = $this->memberNumber();
         $Member->user_id = $user->id;
@@ -155,152 +147,11 @@ class MemberController extends Controller
         $Member->emergency_contact_information = $request->emergency_contact_information;
         $Member->notes = $request->notes;
         $Member->membership_part = $request->membership_part;
-        $Member->parent_id = $parent;
+        $Member->parent_id = $tenantId;
 
         if ($request->hasFile('image')) {
             $extension = $request->file('image')->getClientOriginalExtension();
-            $name = \Str::uuid() . '.' . $extension;
-            $request->file('image')->storeAs('upload/member/', $name);
-            $Member->image = $name;
-        }
-
-        $Member->save();
-
-        if (!empty($request->plan_id) && is_numeric($request->plan_id)) {
-            $membership = new Membership();
-            $membership->member_id = $Member->id;
-            $membership->plan_id = $request->plan_id;
-            $membership->start_date = $request->start_date ?? now()->toDateString();
-            $membership->expiry_date = $request->expiry_date ?? null;
-            // Default to Pending for public-created memberships
-            $membership->status = $request->status ?? 'Pending';
-            $membership->parent_id = $parent;
-            $membership->save();
-        }
-
-        // Send notifications if configured
-        if (!empty($Member->email)) {
-            $module = 'member_create';
-            $notification = Notification::where('parent_id', $parent)->where('module', $module)->first();
-            $setting = settings();
-            $errorMessage = '';
-
-            if (!empty($notification)) {
-                $notificationResponse = MessageReplace($notification, $Member->id);
-
-                $data['subject'] = $notificationResponse['subject'];
-                $data['message'] = $notificationResponse['message'];
-                $data['module'] = $module;
-                $data['logo'] = $setting['company_logo'];
-                $to = $request->email;
-
-                if ($notification->enabled_email == 1) {
-                    $response = commonEmailSend($to, $data);
-                    if ($response['status'] == 'error') {
-                        $errorMessage = $response['message'];
-                    }
-                }
-                if ($notification->enabled_sms == 1) {
-                    $twilio_sid = getSettingsValByName('twilio_sid');
-                    if (!empty($twilio_sid)) {
-                        send_twilio_msg($request->phone, $response['sms_message']);
-                    }
-                }
-            }
-
-            return redirect()->route('member.public.create')->with('success', __('Thanks — your registration was received.') . ($errorMessage ? '</br>' . $errorMessage : ''));
-        }
-
-        return redirect()->route('member.public.create')->with('success', __('Thanks — your registration was received.'));
-    }
-
-
->>>>>>> e274726 (saving more work for the public member form)
-    public function store(Request $request)
-    {
-        // Simple honeypot: bots often fill hidden fields; users won't.
-        if ($request->filled('website')) {
-            return back()->withErrors(['form' => 'Spam detected'])->withInput();
-        }
-
-        // Validate input (added password + tighter email rules)
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'first_name'   => 'required|string|max:100',
-                'last_name'    => 'required|string|max:100',
-                'email'        => 'required|email:rfc,dns|max:255|unique:users,email',
-                'phone'        => 'required|string|max:30',
-                'dob'          => 'required|date',
-                'address'      => 'required|string|max:255',
-                'password'     => 'required|string|min:8',
-                'gender'       => 'nullable|string|max:20',
-                'emergency_contact_information' => 'nullable|string|max:255',
-                'notes'        => 'nullable|string|max:2000',
-                'membership_part' => 'nullable|string|max:255',
-                'image'        => 'nullable|image|max:5120', // 5MB
-                'plan_id'      => 'nullable|exists:membership_plans,id',
-                'start_date'   => 'nullable|date',
-                'expiry_date'  => 'nullable|date|after_or_equal:start_date',
-                'status'       => 'nullable|in:Active,Inactive,Paid,Unpaid',
-            ]
-        );
-
-        if ($validator->fails()) {
-            return redirect()->back()->with('error', $validator->getMessageBag()->first())->withInput();
-        }
-
-        // Enforce subscription member limit if applicable (assumes parentId() works for guests)
-        $tenantId  = parentId();
-        $authUser  = User::find($tenantId);
-        if ($authUser) {
-            $totalMember  = $authUser->totalMembers();
-            $subscription = Subscription::find($authUser->subscription);
-            if ($subscription && $subscription->member_limit != 0 && $totalMember >= $subscription->member_limit) {
-                return redirect()->back()->with('error', __('Your member limit is over, please upgrade your subscription.'));
-            }
-        }
-
-        // Ensure a "member" role exists for the tenant
-        $userRole = Role::where('name', 'member')->where('parent_id', $tenantId)->first();
-
-        // Create User
-        $user = new User();
-        $user->name              = $request->first_name;
-        $user->email             = $request->email;
-        $user->phone_number      = $request->phone;
-        $user->password          = Hash::make($request->password);
-        $user->type              = $userRole ? $userRole->name : 'member';
-        $user->profile           = 'avatar.png';
-        $user->lang              = 'english';
-        $user->parent_id         = $tenantId;
-        $user->email_verified_at = now();
-        $user->save();
-
-        if ($userRole) {
-            $user->assignRole($userRole);
-        }
-
-        // Create Member
-        $Member = new Member();
-        $Member->member_id                     = $this->memberNumber();
-        $Member->user_id                       = $user->id;
-        $Member->first_name                    = $request->first_name;
-        $Member->last_name                     = $request->last_name;
-        $Member->password                      = Hash::make($request->password);
-        $Member->email                         = $request->email;
-        $Member->phone                         = $request->phone;
-        $Member->dob                           = $request->dob;
-        $Member->address                       = $request->address;
-        $Member->gender                        = $request->gender;
-        $Member->emergency_contact_information = $request->emergency_contact_information;
-        $Member->notes                         = $request->notes;
-        $Member->membership_part               = $request->membership_part;
-        $Member->parent_id                     = $tenantId;
-
-        if ($request->hasFile('image')) {
-            $extension = $request->file('image')->getClientOriginalExtension();
-            $name      = (string) Str::uuid() . '.' . $extension;
+            $name = (string) Str::uuid() . '.' . $extension;
             $request->file('image')->storeAs('upload/member/', $name);
             $Member->image = $name;
         }
@@ -309,28 +160,27 @@ class MemberController extends Controller
 
         // Optional membership attachment
         if (!empty($request->plan_id)) {
-            $membership              = new Membership();
-            $membership->member_id   = $Member->id;
-            $membership->plan_id     = $request->plan_id;
-            $membership->start_date  = $request->start_date;
+            $membership = new Membership();
+            $membership->member_id = $Member->id;
+            $membership->plan_id = $request->plan_id;
+            $membership->start_date = $request->start_date;
             $membership->expiry_date = $request->expiry_date;
-            $membership->status      = $request->status;
-            $membership->parent_id   = $tenantId;
+            $membership->status = $request->status;
+            $membership->parent_id = $tenantId;
             $membership->save();
 
             // If immediately Active, trigger renew flow
             if (!empty($membership) && $membership->status === 'Active') {
                 return app(MembershipController::class)->renew($request, $membership->id);
-                // Or: return redirect()->route('membership.renew', $membership->id);
             }
 
-            // If you want an unpaid payment record by default:
+            // If you want an unpaid payment record by default, uncomment and adjust relation naming:
             // $payment = new MembershipPayment();
             // $payment->member_id = $membership->member_id;
-            // $payment->plan_id   = $membership->plan_id;
-            // $payment->payment_id= $this->paymentNumber();
-            // $payment->status    = 'Unpaid';
-            // $payment->amount    = $membership->plans->price ?? 0;
+            // $payment->plan_id = $membership->plan_id;
+            // $payment->payment_id = $this->paymentNumber();
+            // $payment->status = 'Unpaid';
+            // $payment->amount = $membership->plan->price ?? 0; // requires Membership::plan() relation
             // $payment->parent_id = $tenantId;
             // $payment->save();
         }
@@ -338,31 +188,26 @@ class MemberController extends Controller
         // Notifications (email/SMS)
         $errorMessage = '';
         if (!empty($Member->email)) {
-            $module       = 'member_create';
+            $module = 'member_create';
             $notification = Notification::where('parent_id', $tenantId)->where('module', $module)->first();
-            $setting      = settings();
-
+            $setting = settings();
             if (!empty($notification)) {
                 $notificationResponse = MessageReplace($notification, $Member->id);
-                $data['subject']      = $notificationResponse['subject'] ?? '';
-                $data['message']      = $notificationResponse['message'] ?? '';
-                $data['module']       = $module;
-                $data['logo']         = $setting['company_logo'] ?? null;
-
+                $data['subject'] = $notificationResponse['subject'] ?? '';
+                $data['message'] = $notificationResponse['message'] ?? '';
+                $data['module'] = $module;
+                $data['logo'] = $setting['company_logo'] ?? null;
                 $to = $request->email;
-
                 if ($notification->enabled_email == 1) {
                     $response = commonEmailSend($to, $data);
                     if (is_array($response) && ($response['status'] ?? '') === 'error') {
                         $errorMessage = $response['message'] ?? '';
                     }
                 }
-
                 if ($notification->enabled_sms == 1) {
                     $twilio_sid = getSettingsValByName('twilio_sid');
                     if (!empty($twilio_sid)) {
-                        // Use the SMS message produced by your notification flow if present
-                        $smsMessage = $notificationResponse['sms_message'] ?? ($response['sms_message'] ?? null);
+                        $smsMessage = $notificationResponse['sms_message'] ?? null;
                         if (!empty($smsMessage)) {
                             send_twilio_msg($request->phone, $smsMessage);
                         }
@@ -375,39 +220,29 @@ class MemberController extends Controller
             ->with('success', __('Member successfully created.') . (!empty($errorMessage) ? ('</br>' . $errorMessage) : ''));
     }
 
-<<<<<<< HEAD
     /**
      * Show a member (protected).
      */
-=======
-
->>>>>>> e274726 (saving more work for the public member form)
     public function show($id)
     {
-        if (Auth::user()->can('show member')) {
+        if (Auth::user() && Auth::user()->can('show member')) {
             $member = Member::where('parent_id', parentId())->where('id', Crypt::decrypt($id))->first();
-
             $memberships = Membership::where('parent_id', parentId())
                 ->where('member_id', $member->id)
                 ->orderBy('id', 'DESC')
                 ->get();
-
             $membershipPayments = MembershipPayment::where('parent_id', parentId())
                 ->where('member_id', $member->id)
                 ->orderBy('id', 'DESC')
                 ->get();
-
             $lastMembership = $memberships->first();
-            $status         = 'false';
+            $status = 'false';
             if (!empty($lastMembership?->expiry_date) && $lastMembership->expiry_date < now()) {
                 $status = 'true';
             }
-
             $documents = MemberDocument::where('member_id', $member->id)->get();
-
             return view('member.show', compact('member', 'documents', 'memberships', 'membershipPayments', 'lastMembership', 'status'));
         }
-
         return redirect()->back()->with('error', __('Permission Denied.'));
     }
 
@@ -416,16 +251,13 @@ class MemberController extends Controller
      */
     public function edit($id)
     {
-        if (Auth::user()->can('edit member')) {
-            $member     = Member::where('parent_id', parentId())->where('id', Crypt::decrypt($id))->first();
+        if (Auth::user() && Auth::user()->can('edit member')) {
+            $member = Member::where('parent_id', parentId())->where('id', Crypt::decrypt($id))->first();
             $membership = MembershipPlan::where('parent_id', parentId())->pluck('plan_name', 'id');
-            $plan       = Membership::where('parent_id', parentId())->where('member_id', $member->id)->orderBy('id', 'DESC')->first();
-            // FIX: use correct model class name
-            $plans      = MembershipPlan::where('parent_id', parentId())->where('id', !empty($plan) ? $plan->plan_id : '0')->first();
-
+            $plan = Membership::where('parent_id', parentId())->where('member_id', $member->id)->orderBy('id', 'DESC')->first();
+            $plans = MembershipPlan::where('parent_id', parentId())->where('id', !empty($plan) ? $plan->plan_id : '0')->first();
             return view('member.edit', compact('member', 'membership', 'plans', 'plan'));
         }
-
         return redirect()->back()->with('error', __('Permission Denied.'));
     }
 
@@ -434,20 +266,21 @@ class MemberController extends Controller
      */
     public function update(Request $request, Member $Member)
     {
-        if (Auth::user()->can('create member')) {
+        if (Auth::user() && Auth::user()->can('edit member')) {
             $user = User::find($Member->user_id);
 
             $validator = Validator::make(
                 $request->all(),
                 [
                     'first_name' => 'required|string|max:100',
-                    'phone'      => 'required|string|max:30',
-                    'email'      => 'required|email:rfc,dns|max:255|unique:users,email,' . ($user->id ?? '0'),
-                    'address'    => 'required|string|max:255',
-                    // 'plan_id'   => 'nullable|exists:membership_plans,id',
+                    'phone' => 'required|string|max:30',
+                    'email' => 'required|email:rfc,dns|max:255|unique:users,email,' . ($user->id ?? '0'),
+                    'address' => 'required|string|max:255',
+                    // Uncomment if you update membership through this form
+                    // 'plan_id' => 'nullable|exists:membership_plans,id',
                     // 'start_date'=> 'nullable|date',
                     // 'expiry_date'=> 'nullable|date|after_or_equal:start_date',
-                    // 'status'    => 'nullable|in:Active,Inactive,Paid,Unpaid',
+                    // 'status' => 'nullable|in:Active,Inactive,Paid,Unpaid',
                 ]
             );
 
@@ -456,26 +289,26 @@ class MemberController extends Controller
             }
 
             // Update user
-            $user->name         = $request->first_name;
-            $user->email        = $request->email;
+            $user->name = $request->first_name;
+            $user->email = $request->email;
             $user->phone_number = $request->phone;
             $user->save();
 
             // Update member
-            $Member->first_name                    = $request->first_name;
-            $Member->last_name                     = $request->last_name;
-            $Member->email                         = $request->email;
-            $Member->phone                         = $request->phone;
-            $Member->dob                           = $request->dob;
-            $Member->address                       = $request->address;
-            $Member->gender                        = $request->gender;
+            $Member->first_name = $request->first_name;
+            $Member->last_name = $request->last_name;
+            $Member->email = $request->email;
+            $Member->phone = $request->phone;
+            $Member->dob = $request->dob;
+            $Member->address = $request->address;
+            $Member->gender = $request->gender;
             $Member->emergency_contact_information = $request->emergency_contact_information;
-            $Member->notes                         = $request->notes;
-            $Member->membership_part               = $request->membership_part;
+            $Member->notes = $request->notes;
+            $Member->membership_part = $request->membership_part;
 
             if ($request->hasFile('image')) {
                 $extension = $request->file('image')->getClientOriginalExtension();
-                $name      = (string) Str::uuid() . '.' . $extension;
+                $name = (string) Str::uuid() . '.' . $extension;
                 $request->file('image')->storeAs('upload/member/', $name);
                 $Member->image = $name;
             }
@@ -486,33 +319,30 @@ class MemberController extends Controller
             if (!empty($request->plan_id)) {
                 $membership = Membership::where('member_id', $Member->id)->first();
                 if (!$membership) {
-                    $membership            = new Membership();
+                    $membership = new Membership();
                     $membership->member_id = $Member->id;
                 }
-
-                $membership->parent_id   = parentId();
-                $membership->plan_id     = $request->plan_id;
-                $membership->start_date  = $request->start_date;
+                $membership->parent_id = parentId();
+                $membership->plan_id = $request->plan_id;
+                $membership->start_date = $request->start_date;
                 $membership->expiry_date = $request->expiry_date;
-                $membership->status      = $request->status;
+                $membership->status = $request->status;
                 $membership->save();
 
                 $payment = MembershipPayment::where('member_id', $Member->id)->first();
                 if (!$payment) {
                     $payment = new MembershipPayment();
                 }
-
                 $payment->payment_id = $this->paymentNumber();
-                $payment->member_id  = $membership->member_id;
-                $payment->plan_id    = $membership->plan_id;
-                $payment->status     = 'Unpaid';
-                $payment->amount     = $membership->plan->price ?? 0;
+                $payment->member_id = $membership->member_id;
+                $payment->plan_id = $membership->plan_id;
+                $payment->status = 'Unpaid';
+                $payment->amount = $membership->plan->price ?? 0; // requires Membership::plan() relation
                 $payment->save();
             }
 
             return redirect()->route('member.index')->with('success', __('Member successfully updated.'));
         }
-
         return redirect()->back()->with('error', __('Permission Denied.'));
     }
 
@@ -521,15 +351,13 @@ class MemberController extends Controller
      */
     public function destroy(Member $Member)
     {
-        if (Auth::user()->can('delete member')) {
+        if (Auth::user() && Auth::user()->can('delete member')) {
             User::where('id', $Member->user_id)->delete();
             MembershipPayment::where('member_id', $Member->id)->delete();
             Membership::where('member_id', $Member->id)->delete();
             $Member->delete();
-
             return redirect()->route('member.index')->with('success', __('Member successfully deleted.'));
         }
-
         return redirect()->back()->with('error', __('Permission denied.'));
     }
 
@@ -539,9 +367,8 @@ class MemberController extends Controller
     public function memberNumber()
     {
         $latestMember = Member::where('parent_id', parentId())
-            ->orderBy('member_id', 'desc') // order by member_id to keep sequence
+            ->orderBy('member_id', 'desc')
             ->first();
-
         return $latestMember ? ($latestMember->member_id + 1) : 1;
     }
 
@@ -560,9 +387,8 @@ class MemberController extends Controller
     public function documentCreate($id)
     {
         $member = Member::find($id);
-        $types  = DocumentType::where('parent_id', parentId())->pluck('type', 'id');
+        $types = DocumentType::where('parent_id', parentId())->pluck('type', 'id');
         $types->prepend('Select Type', '');
-
         return view('member.document_create', compact('member', 'types'));
     }
 
@@ -578,8 +404,8 @@ class MemberController extends Controller
             [
                 'document_name' => 'required|string|max:255',
                 'document_type' => 'required|exists:document_types,id',
-                'document'      => 'required|file|max:10240', // 10MB
-                'upload_date'   => 'required|date',
+                'document' => 'required|file|max:10240', // 10MB
+                'upload_date' => 'required|date',
             ]
         );
 
@@ -587,16 +413,16 @@ class MemberController extends Controller
             return redirect()->back()->with('error', $validator->getMessageBag()->first());
         }
 
-        $document                  = new MemberDocument();
-        $document->member_id       = $member->id;
-        $document->document_name   = $request->document_name;
-        $document->document_type   = $request->document_type;
-        $document->upload_date     = $request->upload_date;
-        $document->status          = 'Pending';
+        $document = new MemberDocument();
+        $document->member_id = $member->id;
+        $document->document_name = $request->document_name;
+        $document->document_type = $request->document_type;
+        $document->upload_date = $request->upload_date;
+        $document->status = 'Pending';
 
         if ($request->hasFile('document')) {
             $extension = $request->file('document')->getClientOriginalExtension();
-            $name      = (string) Str::uuid() . '.' . $extension;
+            $name = (string) Str::uuid() . '.' . $extension;
             $request->file('document')->storeAs('upload/member/document/', $name);
             $document->document = $name;
         }
@@ -613,9 +439,8 @@ class MemberController extends Controller
     public function documentEdit($id)
     {
         $document = MemberDocument::find($id);
-        $types    = DocumentType::where('parent_id', parentId())->pluck('type', 'id');
+        $types = DocumentType::where('parent_id', parentId())->pluck('type', 'id');
         $types->prepend('Select Type', '');
-
         return view('member.document_edit', compact('document', 'types'));
     }
 
@@ -629,7 +454,7 @@ class MemberController extends Controller
             [
                 'document_name' => 'required|string|max:255',
                 'document_type' => 'required|exists:document_types,id',
-                'upload_date'   => 'required|date',
+                'upload_date' => 'required|date',
             ]
         );
 
@@ -637,14 +462,14 @@ class MemberController extends Controller
             return redirect()->back()->with('error', $validator->getMessageBag()->first());
         }
 
-        $document                = MemberDocument::find($id);
+        $document = MemberDocument::find($id);
         $document->document_name = $request->document_name;
         $document->document_type = $request->document_type;
-        $document->upload_date   = $request->upload_date;
+        $document->upload_date = $request->upload_date;
 
         if ($request->hasFile('document')) {
             $extension = $request->file('document')->getClientOriginalExtension();
-            $name      = (string) Str::uuid() . '.' . $extension;
+            $name = (string) Str::uuid() . '.' . $extension;
             $request->file('document')->storeAs('upload/member/document/', $name);
             $document->document = $name;
         }
@@ -661,7 +486,7 @@ class MemberController extends Controller
     {
         $document = MemberDocument::find($id);
         $document->delete();
-
         return redirect()->back()->with('success', __('Document successfully deleted.'));
     }
 }
+

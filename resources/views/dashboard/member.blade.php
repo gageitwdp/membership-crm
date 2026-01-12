@@ -144,7 +144,7 @@
                                         <small>{{ __('Unlimited') }}</small>
                                     @endif
                                 @else
-                                    @if (Auth::user()->type == 'member')
+                                    @if (Auth::user()?->type === 'member')
                                         @if (!empty($MemberLatPlan) && $MemberLatPlan->plan_id == $membershipPlan->plan_id)
                                             @if (
                                                 $invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' ||
@@ -243,7 +243,7 @@
                     <small class="text-muted">{{ __('Unlimited') }}</small>
                 @endif
             @else
-                 @if (Auth::user()->type == 'member')
+                 @if (Auth::user()?->type === 'member')
                     @if (!empty($MemberLatPlan) && $MemberLatPlan->plan_id == $membershipPlan->plan_id)
                         <a class="btn btn-outline-info w-100 rounded-3 mt-3 customModal buy_now"
                             data-size="lg"
@@ -363,8 +363,8 @@
             let planId = $('.new-plan').val();
 
             var tx_ref = "RX1_" + Math.floor((Math.random() * 1000000000) + 1);
-            var customer_email = '{{ \Auth::user()->email }}';
-            var customer_name = '{{ \Auth::user()->name }}';
+            var customer_email = '{{ \Auth::user()?->email ?? '' }}';
+            var customer_name = '{{ \Auth::user()?->name ?? '' }}';
             var flutterwave_public_key = '{{ $invoicePaymentSettings['flutterwave_public_key'] }}';
             var currency = '{{ $invoicePaymentSettings['CURRENCY'] }}';
 

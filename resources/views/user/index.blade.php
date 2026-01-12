@@ -83,7 +83,7 @@
                                                 </div>
                                                 <div class="flex-grow-1 ms-3">
                                                     <h5 class="mb-1">
-                                                        {{ $user->name }}
+                                                        {{ $user?->name ?? '' }}
 
                                                     </h5>
                                                     <p class="text-muted f-12 mb-0">
@@ -93,7 +93,7 @@
 
                                         </td>
 
-                                        <td>{{ $user->email }} </td>
+                                        <td>{{ $user?->email ?? '' }} </td>
                                         @if (\Auth::user()->type == 'super admin')
                                             <td>{{ !empty($user->subscriptions) ? $user->subscriptions->title : '-' }}
                                             </td>

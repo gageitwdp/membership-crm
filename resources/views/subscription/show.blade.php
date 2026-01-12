@@ -95,8 +95,8 @@
                 var amount = discoutedPrice.replace(currency_symbol, "");
                 var flutterwaveCallbackURL = "{{ url('subscription/flutterwave/') }}";
                 var tx_ref = "RX1_" + Math.floor((Math.random() * 1000000000) + 1);
-                var customer_email = '{{ \Auth::user()->email }}';
-                var customer_name = '{{ \Auth::user()->name }}';
+                var customer_email = '{{ \Auth::user()?->email ?? '' }}';
+                var customer_name = '{{ \Auth::user()?->name ?? '' }}';
                 var flutterwave_public_key = '{{ $settings['flutterwave_public_key'] }}';
                 var nowTim = "{{ date('d-m-Y-h-i-a') }}";
                 var currency = '{{ $settings['CURRENCY'] }}';

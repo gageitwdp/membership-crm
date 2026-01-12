@@ -57,7 +57,7 @@
                                                         alt="User image" />
                                                 </div>
                                                 <div class="flex-grow-1 mx-3">
-                                                    <h5 class="mb-1">{{ $user->name }}</h5>
+                                                    <h5 class="mb-1">{{ $user?->name ?? '' }}</h5>
                                                     <h6 class="text-muted mb-0">{!! $user->SubscriptionLeftDay() !!}</h6>
                                                 </div>
                                                 <div class="flex-shrink-0">
@@ -132,9 +132,8 @@
                                                     <tbody>
                                                         @foreach ($transactions as $transaction)
                                                             <tr>
-                                                                <td>{{ !empty($transaction->users) ? $transaction->users->name : '' }}
-                                                                </td>
-                                                                <td>{{ dateFormat($transaction->created_at) }}</td>
+                                                                <td>{{ $transaction?->users?->name ?? '' }}</td>
+								<td>{{ dateFormat($transaction->created_at) }}</td>
                                                                 <td>{{ !empty($transaction->subscriptions) ? $transaction->subscriptions->title : '-' }}
                                                                 </td>
                                                                 <td>{{ $settings['CURRENCY_SYMBOL'] . $transaction->amount }}
@@ -176,7 +175,7 @@
                                                         alt="User image" />
                                                 </div>
                                                 <div class="flex-grow-1 mx-3">
-                                                    <h5 class="mb-1">{{ $user->name }}</h5>
+                                                    <h5 class="mb-1">{{ $user?->name ?? '' }}</h5>
                                                     <h6 class="text-muted mb-0">{!! $user->SubscriptionLeftDay() !!}</h6>
                                                 </div>
                                                 <div class="flex-shrink-0">

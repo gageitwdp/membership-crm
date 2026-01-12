@@ -23,7 +23,7 @@
         {{-- Right-side items (auth-aware) --}}
         <nav class="top-nav">
             @auth
-                <span class="user-name">{{ Auth::user()->name }}</span>
+                <span class="user-name">{{ Auth::user()?->name ?? '' }}</span>
                 {{-- Language indicator --}}
                 <span class="lang">{{ strtoupper($lang) }}</span>
                 <a href="{{ route('setting.index') }}">{{ __('Settings') }}</a>
@@ -82,7 +82,7 @@
 
                     </div>
                 </li>
-                @if (\Auth::user()->type == 'super admin' || \Auth::user()->type == 'owner')
+                @if (\Auth::user()?->type === 'super admin' || \Auth::user()?->type === 'owner')
                     <li class="dropdown pc-h-item pc-mega-menu" data-bs-toggle="tooltip" data-bs-original-title="{{__('Theme Settings')}}" data-bs-placement="bottom">
                         <a href="#" class="pc-head-link head-link-secondary dropdown-toggle arrow-none me-0"
                             data-bs-toggle="offcanvas" data-bs-target="#offcanvas_pc_layout">
@@ -102,9 +102,9 @@
                         <div class="dropdown-header">
                             <h4>
                                 {{ __('Good Morning') }},
-                                <span class="small text-muted">{{\Auth::user()->name}}</span>
+                                <span class="small text-muted">{{\Auth::user()?->name ?? ''}}</span>
                             </h4>
-                            <p class="text-muted">{{\Auth::user()->type}}</p>
+                            <p class="text-muted">{{\Auth::user()?->type ?? ''}}</p>
 
                             <div class="profile-notification-scroll position-relative"
                                 style="max-height: calc(100vh - 280px)">

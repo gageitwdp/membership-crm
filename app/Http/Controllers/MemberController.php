@@ -70,8 +70,152 @@ class MemberController extends Controller
     }
 
     /**
+<<<<<<< HEAD
      * Public: handle form submission and create the member + user account.
      */
+=======
+     * Public-facing create form for members.
+     * Route: GET  /public/member/create  -> name: member.public.create
+     */
+    public function publicCreate()
+    {
+        $parent = auth()->check() ? parentId() : 1;
+
+        $membership = MembershipPlan::where('parent_id', $parent)->pluck('plan_name', 'id');
+        $membership->prepend('Select Plan', '');
+
+        return view('member.public_create', compact('membership'));
+    }
+
+    /**
+     * Public-facing store action.
+     * Route: POST /public/member -> name: member.public.store
+     */
+    public function publicStore(Request $request)
+    {
+        $validator = \Validator::make(
+            $request->all(),
+            [
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'phone' => 'required|string|max:50',
+                'dob' => 'required|date',
+                'address' => 'required|string',
+                'password' => 'required|string|min:6|confirmed', // requires password_confirmation field
+                'image' => 'nullable|image|max:2048',
+            ]
+        );
+
+        if ($validator->fails()) {
+            $messages = $validator->getMessageBag();
+            return redirect()->back()->withInput()->with('error', $messages->first());
+        }
+
+        $parent = auth()->check() ? parentId() : 1;
+
+        // Find role for parent, fall back to any 'member' role
+        $userRole = Role::where('name', 'member')->where('parent_id', $parent)->first();
+        if (!$userRole) {
+            $userRole = Role::where('name', 'member')->first();
+        }
+
+        $user = new User();
+        $user->name = $request->first_name . ($request->last_name ? ' ' . $request->last_name : '');
+        $user->email = $request->email;
+        $user->phone_number = $request->phone;
+        $user->password = Hash::make($request->password);
+        $user->type = $userRole ? $userRole->name : 'member';
+        $user->profile = 'avatar.png';
+        $user->lang = 'english';
+        $user->parent_id = $parent;
+        // For public signup we mark email as verified; change if you want verification flow
+        $user->email_verified_at = now();
+        $user->save();
+
+        if ($userRole) {
+            try {
+                $user->assignRole($userRole);
+            } catch (\Exception $e) {
+                // swallow role assignment errors so signup still completes
+            }
+        }
+
+        $Member = new Member();
+        $Member->member_id = $this->memberNumber();
+        $Member->user_id = $user->id;
+        $Member->first_name = $request->first_name;
+        $Member->last_name = $request->last_name;
+        $Member->password = Hash::make($request->password);
+        $Member->email = $request->email;
+        $Member->phone = $request->phone;
+        $Member->dob = $request->dob;
+        $Member->address = $request->address;
+        $Member->gender = $request->gender;
+        $Member->emergency_contact_information = $request->emergency_contact_information;
+        $Member->notes = $request->notes;
+        $Member->membership_part = $request->membership_part;
+        $Member->parent_id = $parent;
+
+        if ($request->hasFile('image')) {
+            $extension = $request->file('image')->getClientOriginalExtension();
+            $name = \Str::uuid() . '.' . $extension;
+            $request->file('image')->storeAs('upload/member/', $name);
+            $Member->image = $name;
+        }
+
+        $Member->save();
+
+        if (!empty($request->plan_id) && is_numeric($request->plan_id)) {
+            $membership = new Membership();
+            $membership->member_id = $Member->id;
+            $membership->plan_id = $request->plan_id;
+            $membership->start_date = $request->start_date ?? now()->toDateString();
+            $membership->expiry_date = $request->expiry_date ?? null;
+            // Default to Pending for public-created memberships
+            $membership->status = $request->status ?? 'Pending';
+            $membership->parent_id = $parent;
+            $membership->save();
+        }
+
+        // Send notifications if configured
+        if (!empty($Member->email)) {
+            $module = 'member_create';
+            $notification = Notification::where('parent_id', $parent)->where('module', $module)->first();
+            $setting = settings();
+            $errorMessage = '';
+
+            if (!empty($notification)) {
+                $notificationResponse = MessageReplace($notification, $Member->id);
+
+                $data['subject'] = $notificationResponse['subject'];
+                $data['message'] = $notificationResponse['message'];
+                $data['module'] = $module;
+                $data['logo'] = $setting['company_logo'];
+                $to = $request->email;
+
+                if ($notification->enabled_email == 1) {
+                    $response = commonEmailSend($to, $data);
+                    if ($response['status'] == 'error') {
+                        $errorMessage = $response['message'];
+                    }
+                }
+                if ($notification->enabled_sms == 1) {
+                    $twilio_sid = getSettingsValByName('twilio_sid');
+                    if (!empty($twilio_sid)) {
+                        send_twilio_msg($request->phone, $response['sms_message']);
+                    }
+                }
+            }
+
+            return redirect()->route('member.public.create')->with('success', __('Thanks — your registration was received.') . ($errorMessage ? '</br>' . $errorMessage : ''));
+        }
+
+        return redirect()->route('member.public.create')->with('success', __('Thanks — your registration was received.'));
+    }
+
+
+>>>>>>> e274726 (saving more work for the public member form)
     public function store(Request $request)
     {
         // Simple honeypot: bots often fill hidden fields; users won't.
@@ -231,9 +375,13 @@ class MemberController extends Controller
             ->with('success', __('Member successfully created.') . (!empty($errorMessage) ? ('</br>' . $errorMessage) : ''));
     }
 
+<<<<<<< HEAD
     /**
      * Show a member (protected).
      */
+=======
+
+>>>>>>> e274726 (saving more work for the public member form)
     public function show($id)
     {
         if (Auth::user()->can('show member')) {

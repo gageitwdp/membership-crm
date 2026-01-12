@@ -224,11 +224,45 @@ Route::resource('expense-type', ExpenseTypeController::class)->middleware(
     ]
 );
 
+<<<<<<< HEAD
 //============================== Member ====================================
 // PUBLIC: new member form + submission
 Route::get('member/create', [MemberController::class, 'create'])
     ->name('member.create')
     ->middleware(['XSS']); // keep your XSS middleware
+=======
+//-------------------------------Member-------------------------------------------
+
+// Public-facing member create/store (Option C)
+Route::get('/public/member/create', [App\Http\Controllers\MemberController::class, 'publicCreate'])
+    ->name('member.public.create');
+
+Route::post('/public/member', [App\Http\Controllers\MemberController::class, 'publicStore'])
+    ->name('member.public.store')
+    ->middleware(['XSS', 'throttle:10,1']);
+
+Route::resource('member', MemberController::class)->middleware(
+    [
+        'auth',
+        'XSS',
+    ]
+);
+Route::group(
+    [
+        'middleware' => [
+            'auth',
+            'XSS',
+        ],
+    ],
+    function () {
+        Route::get('member/{id}/document/create', [MemberController::class, 'documentCreate'])->name('member.document.create');
+        Route::post('member/{id}/document/store', [MemberController::class, 'documentStore'])->name('member.document.store');
+        Route::get('member/document/{id}/edit', [MemberController::class, 'documentEdit'])->name('member.document.edit');
+        Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
+        Route::delete('member/document/{id}/delete', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
+    }
+);
+>>>>>>> e274726 (saving more work for the public member form)
 
 Route::post('member', [MemberController::class, 'store'])
     ->name('member.store')

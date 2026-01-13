@@ -1,5 +1,4 @@
 <?php
-
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\AuthPageController;
 use Illuminate\Support\Facades\Route;
@@ -32,422 +31,178 @@ use App\Http\Controllers\MembershipSuspensionController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Auth;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
-*/
-
+/* ------------------------------------------------------------
+   Web Routes
+   ------------------------------------------------------------ */
 require __DIR__ . '/auth.php';
 
-Route::get('/', [HomeController::class, 'index'])->middleware(
-    [
+// Public home/dashboard
+Route::middleware(['XSS'])->group(function () {
+    Route::get('/', [HomeController::class, 'index']);
+    Route::get('home', [HomeController::class, 'index'])->name('home');
+    Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard');
 
-        'XSS',
-    ]
-);
-Route::get('home', [HomeController::class, 'index'])->name('home')->middleware(
-    [
+    // OTP
+    Route::get('login/otp', [OTPController::class, 'show'])->name('otp.show');
+    Route::post('login/otp', [OTPController::class, 'check'])->name('otp.check')->middleware('throttle:10,1');
+    Route::get('login/2fa/disable', [OTPController::class, 'disable'])->name('2fa.disable');
 
-        'XSS',
-    ]
-);
-Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard')->middleware(
-    [
+    // PUBLIC: Member create/store
+    Route::get('member/create', [MemberController::class, 'create'])->name('member.create');
+    Route::post('member', [MemberController::class, 'store'])->name('member.store')->middleware('throttle:10,1');
 
-        'XSS',
-    ]
-);
+    // Public page render by slug
+    Route::get('page/{slug}', [PageController::class, 'page'])->name('page');
+});
 
-//-------------------------------User-------------------------------------------
+// Users
+Route::resource('users', UserController::class)->middleware(['auth', 'XSS']);
 
-Route::resource('users', UserController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-Route::get('setauth/{id}',  function ($id) {
+// Dev-only: setauth (consider removing in production)
+Route::get('setauth/{id}', function ($id) {
     $user = User::find($id);
     Auth::login($user);
     return redirect()->route('home');
 });
 
+// Subscriptions & coupons
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('subscriptions', SubscriptionController::class);
+    Route::get('coupons/history', [CouponController::class, 'history'])->name('coupons.history');
+    Route::delete('coupons/history/{id}/destroy', [CouponController::class, 'historyDestroy'])->name('coupons.history.destroy');
+    Route::get('coupons/apply', [CouponController::class, 'apply'])->name('coupons.apply');
+    Route::resource('coupons', CouponController::class);
+    Route::get('subscription/transaction', [SubscriptionController::class, 'transaction'])->name('subscription.transaction');
+});
 
-Route::get('login/otp', [OTPController::class, 'show'])->name('otp.show')->middleware(
-    [
+// Subscription payment
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::post('subscription/{id}/stripe/payment', [SubscriptionController::class, 'stripePayment'])->name('subscription.stripe.payment');
+});
 
-        'XSS',
-    ]
-);
-Route::post('login/otp', [OTPController::class, 'check'])->name('otp.check')->middleware(
-    [
+// Settings
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::get('settings', [SettingController::class, 'index'])->name('setting.index');
+    Route::post('settings/account', [SettingController::class, 'accountData'])->name('setting.account');
+    Route::delete('settings/account/delete', [SettingController::class, 'accountDelete'])->name('setting.account.delete');
+    Route::post('settings/password', [SettingController::class, 'passwordData'])->name('setting.password');
+    Route::post('settings/general', [SettingController::class, 'generalData'])->name('setting.general');
+    Route::post('settings/smtp', [SettingController::class, 'smtpData'])->name('setting.smtp');
+    Route::get('settings/smtp-test', [SettingController::class, 'smtpTest'])->name('setting.smtp.test');
+    Route::post('settings/smtp-test', [SettingController::class, 'smtpTestMailSend'])->name('setting.smtp.testing');
+    Route::post('settings/payment', [SettingController::class, 'paymentData'])->name('setting.payment');
+    Route::post('settings/site-seo', [SettingController::class, 'siteSEOData'])->name('setting.site.seo');
+    Route::post('settings/google-recaptcha', [SettingController::class, 'googleRecaptchaData'])->name('setting.google.recaptcha');
+    Route::post('settings/company', [SettingController::class, 'companyData'])->name('setting.company');
+    Route::post('settings/2fa', [SettingController::class, 'twofaEnable'])->name('setting.twofa.enable');
+    Route::get('footer-setting', [SettingController::class, 'footerSetting'])->name('footerSetting');
+    Route::post('settings/footer', [SettingController::class, 'footerData'])->name('setting.footer');
+    Route::get('language/{lang}', [SettingController::class, 'lanquageChange'])->name('language.change');
+    Route::post('theme/settings', [SettingController::class, 'themeSettings'])->name('theme.settings');
+    Route::post('settings/twilio', [SettingController::class, 'twilio'])->name('setting.twilio');
+});
 
-        'XSS',
-    ]
-);
-Route::get('login/2fa/disable', [OTPController::class, 'disable'])->name('2fa.disable')->middleware(['XSS',]);
+// Role & Permissions
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('permission', PermissionController::class);
+    Route::resource('role', RoleController::class);
+});
 
-//-------------------------------Subscription-------------------------------------------
+// Note & Contact
+Route::resource('note', NoticeBoardController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('contact', ContactController::class)->middleware(['auth', 'XSS', '2fa']);
 
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
+// Logged history
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::get('logged/history', [UserController::class, 'loggedHistory'])->name('logged.history');
+    Route::get('logged/{id}/history/show', [UserController::class, 'loggedHistoryShow'])->name('logged.history.show');
+    Route::delete('logged/{id}/history', [UserController::class, 'loggedHistoryDestroy'])->name('logged.history.destroy');
+});
 
-        Route::resource('subscriptions', SubscriptionController::class);
-        Route::get('coupons/history', [CouponController::class, 'history'])->name('coupons.history');
-        Route::delete('coupons/history/{id}/destroy', [CouponController::class, 'historyDestroy'])->name('coupons.history.destroy');
-        Route::get('coupons/apply', [CouponController::class, 'apply'])->name('coupons.apply');
-        Route::resource('coupons', CouponController::class);
-        Route::get('subscription/transaction', [SubscriptionController::class, 'transaction'])->name('subscription.transaction');
-    }
-);
+// Plan payment
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::post('subscription/{id}/bank-transfer', [PaymentController::class, 'subscriptionBankTransfer'])->name('subscription.bank.transfer');
+    Route::get('subscription/{id}/bank-transfer/action/{status}', [PaymentController::class, 'subscriptionBankTransferAction'])->name('subscription.bank.transfer.action');
+    Route::post('subscription/{id}/paypal', [PaymentController::class, 'subscriptionPaypal'])->name('subscription.paypal');
+    Route::get('subscription/{id}/paypal/{status}', [PaymentController::class, 'subscriptionPaypalStatus'])->name('subscription.paypal.status');
+    Route::post('subscription/{id}/{user_id}/manual-assign-package', [PaymentController::class, 'subscriptionManualAssignPackage'])->name('subscription.manual_assign_package');
+    Route::get('subscription/flutterwave/{sid}/{tx_ref}', [PaymentController::class, 'subscriptionFlutterwave'])->name('subscription.flutterwave');
+    Route::post('subscription-pay-with-paystack', [PaymentController::class, 'subscriptionPaystack'])->name('subscription.pay.with.paystack')->middleware(['auth', 'XSS', '2fa']);
+    Route::get('subscription/paystack/{pay_id}/{s_id}', [PaymentController::class, 'subscriptionPaystackStatus'])->name('subscription.paystack');
+});
 
-//-------------------------------Subscription Payment-------------------------------------------
+// Document & Expense types
+Route::resource('document-type', DocumentTypeController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('expense-type', ExpenseTypeController::class)->middleware(['auth', 'XSS', '2fa']);
 
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
+// Members (protected CRUD except public create/store)
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('member', MemberController::class)->except(['create', 'store']);
+    Route::get('member/{id}/document/create', [MemberController::class, 'documentCreate'])->name('member.document.create');
+    Route::post('member/{id}/document/store', [MemberController::class, 'documentStore'])->name('member.document.store');
+    Route::get('member/document/{id}/edit', [MemberController::class, 'documentEdit'])->name('member.document.edit');
+    Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
+    Route::delete('member/document/{id}/delete', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
+});
 
-        Route::post('subscription/{id}/stripe/payment', [SubscriptionController::class, 'stripePayment'])->name('subscription.stripe.payment');
-    }
-);
-//-------------------------------Settings-------------------------------------------
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::get('settings', [SettingController::class, 'index'])->name('setting.index');
+// Membership
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('membership', MembershipController::class);
+    Route::get('get-duration/', [MembershipController::class, 'getDuration'])->name('getDurations');
+});
 
-        Route::post('settings/account', [SettingController::class, 'accountData'])->name('setting.account');
-        Route::delete('settings/account/delete', [SettingController::class, 'accountDelete'])->name('setting.account.delete');
-        Route::post('settings/password', [SettingController::class, 'passwordData'])->name('setting.password');
-        Route::post('settings/general', [SettingController::class, 'generalData'])->name('setting.general');
-        Route::post('settings/smtp', [SettingController::class, 'smtpData'])->name('setting.smtp');
-        Route::get('settings/smtp-test', [SettingController::class, 'smtpTest'])->name('setting.smtp.test');
-        Route::post('settings/smtp-test', [SettingController::class, 'smtpTestMailSend'])->name('setting.smtp.testing');
-        Route::post('settings/payment', [SettingController::class, 'paymentData'])->name('setting.payment');
-        Route::post('settings/site-seo', [SettingController::class, 'siteSEOData'])->name('setting.site.seo');
-        Route::post('settings/google-recaptcha', [SettingController::class, 'googleRecaptchaData'])->name('setting.google.recaptcha');
-        Route::post('settings/company', [SettingController::class, 'companyData'])->name('setting.company');
-        Route::post('settings/2fa', [SettingController::class, 'twofaEnable'])->name('setting.twofa.enable');
+// Membership Plan
+Route::resource('membership-plan', MembershipPlanController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::get('membership-plan/payment/{id}', [MembershipPlanController::class, 'payment'])->name('membership-plan.payment');
 
-        Route::get('footer-setting', [SettingController::class, 'footerSetting'])->name('footerSetting');
-        Route::post('settings/footer', [SettingController::class, 'footerData'])->name('setting.footer');
+// Membership Payment
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('membership-payment', MembershipPaymentController::class);
+    Route::delete('membership-payment/{id}/paymentdestroy', [MembershipPaymentController::class, 'paymentDelete'])->name('membership-payment.paymentdelete');
+});
 
-        Route::get('language/{lang}', [SettingController::class, 'lanquageChange'])->name('language.change');
-        Route::post('theme/settings', [SettingController::class, 'themeSettings'])->name('theme.settings');
+// Event
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::resource('event', EventController::class);
+    Route::get('calendar', [EventController::class, 'calendar'])->name('event.calendar');
+});
 
-        Route::post('settings/twilio', [SettingController::class, 'twilio'])->name('setting.twilio');
-    }
-);
+// Activity, Suspension, Expense, Notification
+Route::resource('activity-tracking', ActivityTrackingController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('membership-suspension', MembershipSuspensionController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('expense', ExpenseController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('notification', NotificationController::class)->middleware(['auth', 'XSS', '2fa']);
 
+// Email verification
+Route::get('email-verification/{token}', [VerifyEmailController::class, 'verifyEmail'])->name('email-verification')->middleware(['XSS']);
 
-//-------------------------------Role & Permissions-------------------------------------------
-Route::resource('permission', PermissionController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
+// FAQ/Homepage/Pages/AuthPage
+Route::resource('FAQ', FAQController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('homepage', HomePageController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('pages', PageController::class)->middleware(['auth', 'XSS', '2fa']);
+Route::resource('authPage', AuthPageController::class)->middleware(['auth', 'XSS', '2fa']);
 
-Route::resource('role', RoleController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
+// Membership renew
+Route::post('membership/{id}/renew', [MembershipController::class, 'renew'])->name('membership.renew')->middleware(['auth', 'XSS', '2fa']);
 
-//-------------------------------Note-------------------------------------------
-Route::resource('note', NoticeBoardController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
+// Invoice payments
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::post('membership/{id}/banktransfer/payment', [MembershipPaymentController::class, 'banktransferPayment'])->name('membership.banktransfer.payment');
+    Route::post('membership/{id}/stripe/payment', [MembershipPaymentController::class, 'stripePayment'])->name('membership.stripe.payment');
+    Route::post('membership/{id}/paypal', [MembershipPaymentController::class, 'invoicePaypal'])->name('membership.paypal');
+    Route::get('membership/{id}/paypal/{status}', [MembershipPaymentController::class, 'invoicePaypalStatus'])->name('membership.paypal.status');
+    Route::get('membership/flutterwave/{id}/{tx_ref}', [MembershipPaymentController::class, 'invoiceFlutterwave'])->name('membership.flutterwave');
+    Route::post('membership/{id}/paystack/payment', [MembershipPaymentController::class, 'invoicePaystack'])->name('membership.paystack.payment');
+    Route::get('membership/paystack/{pay_id}/{i_id}', [MembershipPaymentController::class, 'invoicePaystackStatus'])->name('membership.paystack');
+    Route::get('membership/{id}/bank-transfer/action/{status}', [MembershipPaymentController::class, 'invoiceBankTransferAction'])->name('membership.bank.transfer.action');
+});
 
-//-------------------------------Contact-------------------------------------------
-Route::resource('contact', ContactController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
+// Reports
+Route::middleware(['auth', 'XSS', '2fa'])->group(function () {
+    Route::get('report/income', [ReportController::class, 'income'])->name('report.income');
+    Route::get('report/membership', [ReportController::class, 'membership'])->name('report.membership');
+    Route::get('report/expense', [ReportController::class, 'expense'])->name('report.expense');
+});
 
-//-------------------------------logged History-------------------------------------------
-
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-
-        Route::get('logged/history', [UserController::class, 'loggedHistory'])->name('logged.history');
-        Route::get('logged/{id}/history/show', [UserController::class, 'loggedHistoryShow'])->name('logged.history.show');
-        Route::delete('logged/{id}/history', [UserController::class, 'loggedHistoryDestroy'])->name('logged.history.destroy');
-    }
-);
-
-
-//-------------------------------Plan Payment-------------------------------------------
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::post('subscription/{id}/bank-transfer', [PaymentController::class, 'subscriptionBankTransfer'])->name('subscription.bank.transfer');
-        Route::get('subscription/{id}/bank-transfer/action/{status}', [PaymentController::class, 'subscriptionBankTransferAction'])->name('subscription.bank.transfer.action');
-        Route::post('subscription/{id}/paypal', [PaymentController::class, 'subscriptionPaypal'])->name('subscription.paypal');
-        Route::get('subscription/{id}/paypal/{status}', [PaymentController::class, 'subscriptionPaypalStatus'])->name('subscription.paypal.status');
-        Route::post('subscription/{id}/{user_id}/manual-assign-package', [PaymentController::class, 'subscriptionManualAssignPackage'])->name('subscription.manual_assign_package');
-        Route::get('subscription/flutterwave/{sid}/{tx_ref}', [PaymentController::class, 'subscriptionFlutterwave'])->name('subscription.flutterwave');
-
-
-        Route::post('/subscription-pay-with-paystack', [PaymentController::class, 'subscriptionPaystack'])->name('subscription.pay.with.paystack')->middleware(['auth', 'XSS']);
-        Route::get('/subscription/paystack/{pay_id}/{s_id}', [PaymentController::class, 'subscriptionPaystackStatus'])->name('subscription.paystack');
-    }
-);
-
-//-------------------------------Document Type-------------------------------------------
-Route::resource('document-type', DocumentTypeController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Expense Type-------------------------------------------
-Route::resource('expense-type', ExpenseTypeController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Member-------------------------------------------
-Route::resource('member', MemberController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::get('member/{id}/document/create', [MemberController::class, 'documentCreate'])->name('member.document.create');
-        Route::post('member/{id}/document/store', [MemberController::class, 'documentStore'])->name('member.document.store');
-        Route::get('member/document/{id}/edit', [MemberController::class, 'documentEdit'])->name('member.document.edit');
-        Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
-        Route::delete('member/document/{id}/delete', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
-    }
-);
-
-
-//-------------------------------Membership-------------------------------------------
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::resource('membership', MembershipController::class);
-        Route::get('get-duration/', [MembershipController::class, 'getDuration'])->name('getDurations');
-    }
-);
-
-//-------------------------------Membership Plan-------------------------------------------
-Route::resource('membership-plan', MembershipPlanController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-Route::get('/membership-plan/payment/{id}', [MembershipPlanController::class, 'payment'])
-    ->name('membership-plan.payment');
-
-//-------------------------------Payment-------------------------------------------
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::resource('membership-payment', MembershipPaymentController::class);
-        Route::delete('membership-payment/{id}/paymentdestroy', [MembershipPaymentController::class, 'paymentDelete'])->name('membership-payment.paymentdelete');
-    }
-);
-
-//-------------------------------Event-------------------------------------------
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-        Route::resource('event', EventController::class);
-        Route::get('calendar', [eventController::class, 'calendar'])->name('event.calendar');
-    }
-);
-
-//-------------------------------Activity Tracking----------------------------------------------
-Route::resource('activity-tracking', ActivityTrackingController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Membership Suspension-------------------------------------------
-Route::resource('membership-suspension', MembershipSuspensionController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-
-
-//-------------------------------Expense-------------------------------------------
-Route::resource('expense', ExpenseController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Notification-------------------------------------------
-Route::resource('notification', NotificationController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-
-    ]
-);
-
-Route::get('email-verification/{token}', [VerifyEmailController::class, 'verifyEmail'])->name('email-verification')->middleware(
-    [
-        'XSS',
-    ]
-);
-
-
-//-------------------------------FAQ-------------------------------------------
-Route::resource('FAQ', FAQController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Home Page-------------------------------------------
-Route::resource('homepage', HomePageController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-//-------------------------------FAQ-------------------------------------------
-Route::resource('pages', PageController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-//-------------------------------Auth page-------------------------------------------
-Route::resource('authPage', AuthPageController::class)->middleware(
-    [
-        'auth',
-        'XSS',
-    ]
-);
-
-
-Route::get('page/{slug}', [PageController::class, 'page'])->name('page');
-
-
-Route::post('/membership/{id}/renew', [MembershipController::class, 'renew'])->name('membership.renew');
-
-
-
-
-//-------------------------------Invoice Payment-------------------------------------------
-
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-
-        Route::post('membership/{id}/banktransfer/payment', [MembershipPaymentController::class, 'banktransferPayment'])->name('membership.banktransfer.payment');
-        Route::post('membership/{id}/stripe/payment', [MembershipPaymentController::class, 'stripePayment'])->name('membership.stripe.payment');
-        Route::post('membership/{id}/paypal', [MembershipPaymentController::class, 'invoicePaypal'])->name('membership.paypal');
-        Route::get('membership/{id}/paypal/{status}', [MembershipPaymentController::class, 'invoicePaypalStatus'])->name('membership.paypal.status');
-        Route::get('membership/flutterwave/{id}/{tx_ref}', [MembershipPaymentController::class, 'invoiceFlutterwave'])->name('membership.flutterwave');
-
-        Route::post('membership/{id}/paystack/payment', [MembershipPaymentController::class, 'invoicePaystack'])->name('membership.paystack.payment');
-        Route::get('/membership/paystack/{pay_id}/{i_id}', [MembershipPaymentController::class, 'invoicePaystackStatus'])->name('membership.paystack');
-        Route::get('membership/{id}/bank-transfer/action/{status}', [MembershipPaymentController::class, 'invoiceBankTransferAction'])->name('membership.bank.transfer.action');
-    }
-);
-
-
-Route::group(
-    [
-        'middleware' => [
-            'auth',
-            'XSS',
-        ],
-    ],
-    function () {
-
-        Route::get('report/income', [ReportController::class, 'income'])->name('report.income');
-        Route::get('report/membership', [ReportController::class, 'membership'])->name('report.membership');
-        Route::get('report/expense', [ReportController::class, 'expense'])->name('report.expense');
-    }
-);
-
-
-//-------------------------------FAQ-------------------------------------------
+// Impersonate
 Route::impersonate();

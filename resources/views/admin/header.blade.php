@@ -1,9 +1,48 @@
 @php
-    $users = \Auth::user();
-    $languages = \App\Models\Custom::languages();
-    $userLang = \Auth::user()->lang;
-    $profile = asset(Storage::url('upload/profile'));
+    // Determine current language safely for guests and authenticated users
+    $settings = function_exists('settings') ? settings() : [];
 @endphp
+{{-- Example: set the html lang attribute or load language-specific assets --}}
+<!DOCTYPE html>
+<html lang="{{ str_replace('_','-', $lang) }}">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ config('app.name', 'Laravel') }}</title>
+    {{-- Place your CSS/JS includes here. Example: --}}
+    {{-- <link rel="stylesheet" href="{{ asset('css/app.css') }}"> --}}
+</head>
+<body>
+    {{-- Header content (logo, top nav, etc.) can safely reference $lang --}}
+    {{-- Example logo / brand --}}
+    <header class="app-header">
+        <div class="brand">
+            <a href="{{ url('/') }}">{{ config('app.name', 'Laravel') }}</a>
+        </div>
+        {{-- Right-side items (auth-aware) --}}
+        <nav class="top-nav">
+            @auth
+                <span class="user-name">{{ Auth::user()?->name ?? '' }}</span>
+                {{-- Language indicator --}}
+                <span class="lang">{{ strtoupper($lang) }}</span>
+                <a href="{{ route('setting.index') }}">{{ __('Settings') }}</a>
+                <form action="{{ route('logout') }}" method="POST" style="display:inline;">
+                    @csrf
+                    <button type="submit">{{ __('Logout') }}</button>
+                </form>
+            @endauth
+
+            @guest
+                {{-- Guest links --}}
+                <span class="lang">{{ strtoupper($lang) }}</span>
+                <a href="{{ route('login') }}">{{ __('Login') }}</a>
+                @if (Route::has('register'))
+                    <a href="{{ route('register') }}">{{ __('Register') }}</a>
+                @endif
+            @endguest
+        </nav>
+    </header>
 
 <header class="pc-header">
     <div class="header-wrapper"><!-- [Mobile Media Block] start -->
@@ -43,7 +82,7 @@
 
                     </div>
                 </li>
-                @if (\Auth::user()->type == 'super admin' || \Auth::user()->type == 'owner')
+                @if (\Auth::user()?->type === 'super admin' || \Auth::user()?->type === 'owner')
                     <li class="dropdown pc-h-item pc-mega-menu" data-bs-toggle="tooltip" data-bs-original-title="{{__('Theme Settings')}}" data-bs-placement="bottom">
                         <a href="#" class="pc-head-link head-link-secondary dropdown-toggle arrow-none me-0"
                             data-bs-toggle="offcanvas" data-bs-target="#offcanvas_pc_layout">
@@ -63,9 +102,9 @@
                         <div class="dropdown-header">
                             <h4>
                                 {{ __('Good Morning') }},
-                                <span class="small text-muted">{{\Auth::user()->name}}</span>
+                                <span class="small text-muted">{{\Auth::user()?->name ?? ''}}</span>
                             </h4>
-                            <p class="text-muted">{{\Auth::user()->type}}</p>
+                            <p class="text-muted">{{\Auth::user()?->type ?? ''}}</p>
 
                             <div class="profile-notification-scroll position-relative"
                                 style="max-height: calc(100vh - 280px)">

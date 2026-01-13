@@ -1,11 +1,7 @@
 <?php
     $profile = asset(Storage::url('upload/profile'));
     $settings = settings();
-    $user = \App\Models\User::find(1);
     // Only for demo mode
-    $lang = Illuminate\Support\Facades\Cookie::get('lang');
-    $language = !empty($lang) ? $lang : $user->lang;
-    \App::setLocale($language);
 ?>
 <!DOCTYPE html>
 <html lang="en">

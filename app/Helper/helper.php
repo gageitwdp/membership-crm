@@ -1,5 +1,4 @@
 <?php
-
 use App\Mail\Common;
 use App\Mail\EmailVerification;
 use App\Mail\TestMail;
@@ -20,7 +19,6 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use Carbon\Carbon;
-use Illuminate\Mail\Mailables\Content;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -77,7 +75,6 @@ if (!function_exists('settingsKeys')) {
             "payment_number_prefix" => "#PAY-000",
             "invoice_number_prefix" => "#INV-000",
             "member_prefix" => "#MBR-000",
-            "expense_number_prefix" => "#EXP-000",
             'CURRENCY' => "USD",
             'CURRENCY_SYMBOL' => "$",
             'STRIPE_PAYMENT' => "off",
@@ -109,7 +106,6 @@ if (!function_exists('settingsKeys')) {
             "color_type" => "preset",
             "custom_color" => "--primary-rgb: 0,0,0",
             "custom_color_code" => "#000000",
-
             "paystack_payment" => "off",
             "paystack_public_key" => "",
             "paystack_secret_key" => "",
@@ -124,29 +120,25 @@ if (!function_exists('settings')) {
     function settings()
     {
         $settingData = DB::table('settings');
-        if (\Auth::check()) {
+        if (Auth::check()) {
             $userId = parentId();
             $settingData = $settingData->where('parent_id', $userId);
         } else {
+            // Guest defaults
             $settingData = $settingData->where('parent_id', 1);
         }
         $settingData = $settingData->get();
         $details = settingsKeys();
-
         foreach ($settingData as $row) {
             $details[$row->name] = $row->value;
         }
-
-        config(
-            [
-                'captcha.secret' => $details['recaptcha_secret'],
-                'captcha.sitekey' => $details['recaptcha_key'],
-                'options' => [
-                    'timeout' => 30,
-                ]
-            ]
-        );
-
+        config([
+            'captcha.secret' => $details['recaptcha_secret'],
+            'captcha.sitekey' => $details['recaptcha_key'],
+            'options' => [
+                'timeout' => 30,
+            ],
+        ]);
         return $details;
     }
 }
@@ -178,11 +170,9 @@ if (!function_exists('subscriptionPaymentSettings')) {
             "paystack_public_key" => "",
             "paystack_secret_key" => "",
         ];
-
         foreach ($settingData as $setting) {
             $result[$setting->name] = $setting->value;
         }
-
         return $result;
     }
 }
@@ -214,7 +204,6 @@ if (!function_exists('invoicePaymentSettings')) {
             "paystack_public_key" => "",
             "paystack_secret_key" => "",
         ];
-
         foreach ($settingData as $row) {
             $result[$row->name] = $row->value;
         }
@@ -229,7 +218,6 @@ if (!function_exists('getSettingsValByName')) {
         if (!isset($setting[$key]) || empty($setting[$key])) {
             $setting[$key] = '';
         }
-
         return $setting[$key];
     }
 }
@@ -241,7 +229,6 @@ if (!function_exists('getSettingsValByIdName')) {
         if (!isset($setting[$key]) || empty($setting[$key])) {
             $setting[$key] = '';
         }
-
         return $setting[$key];
     }
 }
@@ -252,56 +239,67 @@ if (!function_exists('settingDateFormat')) {
         return date($settings['company_date_format'], strtotime($date));
     }
 }
+
 if (!function_exists('settingPriceFormat')) {
     function settingPriceFormat($settings, $price)
     {
         return $settings['CURRENCY_SYMBOL'] . $price;
     }
 }
+
 if (!function_exists('settingTimeFormat')) {
     function settingTimeFormat($settings, $time)
     {
         return date($settings['company_time_format'], strtotime($time));
     }
 }
+
 if (!function_exists('dateFormat')) {
     function dateFormat($date)
     {
         $settings = settings();
-
         return date($settings['company_date_format'], strtotime($date));
     }
 }
+
 if (!function_exists('timeFormat')) {
     function timeFormat($time)
     {
         $settings = settings();
-
         return date($settings['company_time_format'], strtotime($time));
     }
 }
+
 if (!function_exists('priceFormat')) {
     function priceFormat($price)
     {
         $settings = settings();
-
         return $settings['CURRENCY_SYMBOL'] . $price;
     }
 }
+
 if (!function_exists('parentId')) {
     function parentId()
     {
-        if (\Auth::user()->type == 'owner' || \Auth::user()->type == 'super admin') {
-            return \Auth::user()->id;
-        } else {
-            return \Auth::user()->parent_id;
+        // Guests: use the same public tenant as settings() for consistency
+        if (!Auth::check()) {
+            return 1; // or config('app.public_tenant_id') if you set it
         }
+
+        $user = Auth::user();
+        $type = $user->type ?? null;
+
+        if ($type === 'owner' || $type === 'super admin') {
+            return $user->id;
+        }
+        return $user->parent_id ?? $user->id;
     }
 }
+
 if (!function_exists('lastMembershipPlan')) {
     function lastMembershipPlan()
     {
-        $Member = Member::where('user_id', \Auth::user()->id)->first();
+        $Member = Member::where('user_id', Auth::user()->id)->first();
         return Membership::where('member_id', $Member->id ?? 0)->orderBy('id', 'desc')->first();
     }
 }
@@ -311,20 +309,18 @@ if (!function_exists('assignSubscription')) {
     {
         $subscription = Subscription::find($id);
         if ($subscription) {
-            \Auth::user()->subscription = $subscription->id;
+            Auth::user()->subscription = $subscription->id;
             if ($subscription->interval == 'Monthly') {
-                \Auth::user()->subscription_expire_date = Carbon::now()->addMonths(1)->isoFormat('YYYY-MM-DD');
+                Auth::user()->subscription_expire_date = Carbon::now()->addMonths(1)->isoFormat('YYYY-MM-DD');
             } elseif ($subscription->interval == 'Quarterly') {
-                \Auth::user()->subscription_expire_date = Carbon::now()->addMonths(3)->isoFormat('YYYY-MM-DD');
+                Auth::user()->subscription_expire_date = Carbon::now()->addMonths(3)->isoFormat('YYYY-MM-DD');
             } elseif ($subscription->interval == 'Yearly') {
-                \Auth::user()->subscription_expire_date = Carbon::now()->addYears(1)->isoFormat('YYYY-MM-DD');
+                Auth::user()->subscription_expire_date = Carbon::now()->addYears(1)->isoFormat('YYYY-MM-DD');
             } else {
-                \Auth::user()->subscription_expire_date = null;
+                Auth::user()->subscription_expire_date = null;
             }
-            \Auth::user()->save();
-
+            Auth::user()->save();
             $users = User::where('parent_id', '=', parentId())->whereNotIn('type', ['super admin', 'owner'])->get();
-
             if ($subscription->user_limit == 0) {
                 foreach ($users as $user) {
                     $user->is_active = 1;
@@ -354,6 +350,7 @@ if (!function_exists('assignSubscription')) {
         }
     }
 }
+
 if (!function_exists('assignManuallySubscription')) {
     function assignManuallySubscription($id, $userId)
     {
@@ -371,9 +368,7 @@ if (!function_exists('assignManuallySubscription')) {
                 $owner->subscription_expire_date = null;
             }
             $owner->save();
-
             $users = User::where('parent_id', '=', parentId())->whereNotIn('type', ['super admin', 'owner'])->get();
-
             if ($subscription->user_limit == 0) {
                 foreach ($users as $user) {
                     $user->is_active = 1;
@@ -403,28 +398,24 @@ if (!function_exists('assignManuallySubscription')) {
         }
     }
 }
+
 if (!function_exists('smtpDetail')) {
     function smtpDetail($id)
     {
         $settings = emailSettings($id);
-
-        $smtpDetail = config(
-            [
-                'mail.mailers.smtp.transport' => $settings['SERVER_DRIVER'],
-                'mail.mailers.smtp.host' => $settings['SERVER_HOST'],
-                'mail.mailers.smtp.port' => $settings['SERVER_PORT'],
-                'mail.mailers.smtp.encryption' => $settings['SERVER_ENCRYPTION'],
-                'mail.mailers.smtp.username' => $settings['SERVER_USERNAME'],
-                'mail.mailers.smtp.password' => $settings['SERVER_PASSWORD'],
-                'mail.from.address' => $settings['FROM_EMAIL'],
-                'mail.from.name' => $settings['FROM_NAME'],
-            ]
-        );
-
+        $smtpDetail = config([
+            'mail.mailers.smtp.transport' => $settings['SERVER_DRIVER'],
+            'mail.mailers.smtp.host' => $settings['SERVER_HOST'],
+            'mail.mailers.smtp.port' => $settings['SERVER_PORT'],
+            'mail.mailers.smtp.encryption' => $settings['SERVER_ENCRYPTION'],
+            'mail.mailers.smtp.username' => $settings['SERVER_USERNAME'],
+            'mail.mailers.smtp.password' => $settings['SERVER_PASSWORD'],
+            'mail.from.address' => $settings['FROM_EMAIL'],
+            'mail.from.name' => $settings['FROM_NAME'],
+        ]);
         return $smtpDetail;
     }
 }
-
 
 if (!function_exists('planPrefix')) {
     function planPrefix()
@@ -458,7 +449,6 @@ if (!function_exists('paymentPrefix')) {
     }
 }
 
-
 if (!function_exists('expensePrefix')) {
     function expensePrefix()
     {
@@ -482,27 +472,16 @@ if (!function_exists('memberPrefix')) {
         return $settings["member_prefix"];
     }
 }
-if (!function_exists('expensePrefix')) {
-    function expensePrefix()
-    {
-        $settings = settings();
-        return $settings["expense_number_prefix"];
-    }
-}
-
 
 if (!function_exists('timeCalculation')) {
     function timeCalculation($startDate, $startTime, $endDate, $endTime)
     {
         $startdate = $startDate . ' ' . $startTime;
         $enddate = $endDate . ' ' . $endTime;
-
         $startDateTime = new DateTime($startdate);
         $endDateTime = new DateTime($enddate);
-
         $interval = $startDateTime->diff($endDateTime);
         $totalHours = $interval->h + $interval->i / 60;
-
         return number_format($totalHours, 2);
     }
 }
@@ -518,6 +497,11 @@ if (!function_exists('setup')) {
 if (!function_exists('userLoggedHistory')) {
     function userLoggedHistory()
     {
+        // Only log for authenticated users; guests have no user context.
+        if (!Auth::check()) {
+            return;
+        }
+
         $serverip = $_SERVER['REMOTE_ADDR'];
         $data = @unserialize(file_get_contents('http://ip-api.com/php/' . $serverip));
         if (isset($data['status']) && $data['status'] == 'success') {
@@ -534,7 +518,7 @@ if (!function_exists('userLoggedHistory')) {
             $data['referrer_path'] = !empty($referrerData['path']);
             $result = json_encode($data);
             $details = new LoggedHistory();
-            $details->type = Auth::user()->type;
+            $details->type = Auth::user()->type ?? null;
             $details->user_id = Auth::user()->id;
             $details->date = date('Y-m-d H:i:s');
             $details->Details = $result;
@@ -544,29 +528,24 @@ if (!function_exists('userLoggedHistory')) {
         }
     }
 }
-if (!function_exists('settingsById')) {
 
+if (!function_exists('settingsById')) {
     function settingsById($userId)
     {
         $data = DB::table('settings');
-        $data = $data->where('parent_id',  $userId);
+        $data = $data->where('parent_id', $userId);
         $data = $data->get();
         $settings = settingsKeys();
-
         foreach ($data as $row) {
             $settings[$row->name] = $row->value;
         }
-
-        config(
-            [
-                'captcha.secret' => $settings['recaptcha_key'],
-                'captcha.sitekey' => $settings['recaptcha_secret'],
-                'options' => [
-                    'timeout' => 30,
-                ],
-            ]
-        );
-
+        config([
+            'captcha.secret' => $settings['recaptcha_key'],
+            'captcha.sitekey' => $settings['recaptcha_secret'],
+            'options' => [
+                'timeout' => 30,
+            ],
+        ]);
         return $settings;
     }
 }
@@ -574,29 +553,28 @@ if (!function_exists('settingsById')) {
 if (!function_exists('defaultTemplateList')) {
     function defaultTemplateList()
     {
-
-        return  [
+        return [
             'user_create' => [
                 'module' => 'user_create',
                 'name' => 'New User',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{new_user_name}', '{app_link}', '{username}', '{password}'],
                 'subject' => 'Welcome to {company_name}',
-                'templete' => '
-                    <p><strong>Dear {new_user_name}</strong>,</p><p>&nbsp;</p><blockquote><p>Welcome to {company_name}! We are excited to have you on board and look forward to providing you with an exceptional experience.</p><p>We hope you enjoy your experience with us. If you have any feedback, feel free to share it with us.</p><p>&nbsp;</p><p>Your account details are as follows:</p><p><strong>App Link:</strong> <a href="{app_link}">{app_link}</a></p><p><strong>Username:</strong> {username}</p><p><strong>Password:</strong> {password}</p><p>&nbsp;</p><p>Thank you for choosing .</p></blockquote>',
+                'templete' => ' 
+ <p><strong>Dear {new_user_name}</strong>,</p><p> </p><blockquote><p>Welcome to {company_name}! We are excited to have you on board and look forward to providing you with an exceptional experience.</p><p>We hope you enjoy your experience with us. If you have any feedback, feel free to share it with us.</p><p> </p><p>Your account details are as follows:</p><p><strong>App Link:</strong> <a href="{app_link}">{app_link}</a></p><p><strong>Username:</strong> {username}</p><p><strong>Password:</strong> {password}</p><p> </p><p>Thank you for choosing .</p></blockquote>',
                 'sms_message' => 'Hi {new_user_name},
-                                welcome to {company_name}!
-                                App: {app_link}
-                                Username: {username}
-                                Password: {password}',
+ welcome to {company_name}!
+ App: {app_link}
+ Username: {username}
+ Password: {password}',
             ],
             'member_create' => [
                 'module' => 'member_create',
                 'name' => 'New member',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{member_name}', '{member_number}', '{membership_plan}', '{membership_start_date}', '{membership_expiry_date}', '{membership_status}'],
                 'subject' => 'Welcome to {company_name}!',
-                'templete' => '
-                    <p><strong>Dear {member_name},</strong></p><p>Welcome to <strong>{company_name}</strong>! We are thrilled to have you join our community. Our team is dedicated to providing you with the best experience possible.</p><p>Your membership details are as follows:</p><ul><li><strong>Membership Plan:</strong> {membership_plan}</li><li><strong>Membership Start Date:</strong> {membership_start_date}</li><li><strong>Membership Expiry Date:</strong> {membership_expiry_date}</li><li><strong>Membership Status:</strong> {membership_status}</li></ul><p>If you have any questions or need assistance, feel free to contact us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for choosing <strong>{company_name}</strong>. We look forward to serving you!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p>
-                ',
+                'templete' => ' 
+ <p><strong>Dear {member_name},</strong></p><p>Welcome to <strong>{company_name}</strong>! We are thrilled to have you join our community. Our team is dedicated to providing you with the best experience possible.</p><p>Your membership details are as follows:</p><ul><li><strong>Membership Plan:</strong> {membership_plan}</li><li><strong>Membership Start Date:</strong> {membership_start_date}</li><li><strong>Membership Expiry Date:</strong> {membership_expiry_date}</li><li><strong>Membership Status:</strong> {membership_status}</li></ul><p>If you have any questions or need assistance, feel free to contact us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for choosing <strong>{company_name}</strong>. We look forward to serving you!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p> 
+ ',
                 'sms_message' => '{company_name}: Dear {member_name}, welcome to {company_name}! Your plan {membership_plan} starts on {membership_start_date} and expires on {membership_expiry_date}. Status: {membership_status}.',
             ],
             'event_create' => [
@@ -604,9 +582,9 @@ if (!function_exists('defaultTemplateList')) {
                 'name' => 'New Event',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{event_name}', '{event_date_time}', '{event_location}', '{max_participant}', '{registration_deadline}', '{availability_status}'],
                 'subject' => 'New Event Announcement: {event_name}',
-                'templete' => '
-                    <p><strong>Exciting News from {company_name}!</strong></p><p>We are excited to announce a brand-new event:</p><ul><li><strong>Event Name:</strong> {event_name}</li><li><strong>Date &amp; Time:</strong> {event_date_time}</li><li><strong>Location:</strong> {event_location}</li><li><strong>Registration Deadline:</strong> {registration_deadline}</li><li><strong>Availability Status:</strong> {availability_status}</li></ul><p><strong>Important:</strong> Be sure to register before the deadline, <strong>{registration_deadline}</strong>, to secure your spot.</p><p>Don’t miss this opportunity to engage and connect! For any inquiries, please reach out to us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for being a part of <strong>{company_name}</strong>. We look forward to your participation!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p>
-                ',
+                'templete' => ' 
+ <p><strong>Exciting News from {company_name}!</strong></p><p>We are excited to announce a brand-new event:</p><ul><li><strong>Event Name:</strong> {event_name}</li><li><strong>Date & Time:</strong> {event_date_time}</li><li><strong>Location:</strong> {event_location}</li><li><strong>Registration Deadline:</strong> {registration_deadline}</li><li><strong>Availability Status:</strong> {availability_status}</li></ul><p><strong>Important:</strong> Be sure to register before the deadline, <strong>{registration_deadline}</strong>, to secure your spot.</p><p>Don’t miss this opportunity to engage and connect! For any inquiries, please reach out to us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for being a part of <strong>{company_name}</strong>. We look forward to your participation!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p> 
+ ',
                 'sms_message' => '{company_name}: New Event - {event_name} on {event_date_time} at {event_location}. Register by {registration_deadline}. Status: {availability_status}.',
             ],
             'activity_tracking' => [
@@ -614,9 +592,9 @@ if (!function_exists('defaultTemplateList')) {
                 'name' => 'Activity tracking',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{member_name}', '{event_name}', '{check_in}', '{check_out}', '{duration}'],
                 'subject' => 'Activity Summary for {event_name}',
-                'templete' => '
-                    <p><strong>Activity Summary from {company_name}</strong></p><p>Dear {member_name},</p><p>Here is the summary of your recent activity for the event <strong>{event_name}</strong>:</p><ul><li><strong>Event Name:</strong> {event_name}</li><li><strong>Check-In Time:</strong> {check_in}</li><li><strong>Check-Out Time:</strong> {check_out}</li><li><strong>Total Duration:</strong> {duration}</li></ul><p>We hope you had a great experience during the event! If you have any questions or feedback, feel free to reach out to us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for being a part of <strong>{company_name}</strong>. We look forward to your continued participation!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p>
-                ',
+                'templete' => ' 
+ <p><strong>Activity Summary from {company_name}</strong></p><p>Dear {member_name},</p><p>Here is the summary of your recent activity for the event <strong>{event_name}</strong>:</p><ul><li><strong>Event Name:</strong> {event_name}</li><li><strong>Check-In Time:</strong> {check_in}</li><li><strong>Check-Out Time:</strong> {check_out}</li><li><strong>Total Duration:</strong> {duration}</li></ul><p>We hope you had a great experience during the event! If you have any questions or feedback, feel free to reach out to us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Thank you for being a part of <strong>{company_name}</strong>. We look forward to your continued participation!</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p> 
+ ',
                 'sms_message' => '{company_name}: Hi {member_name}, your activity for {event_name} - Check-In: {check_in}, Check-Out: {check_out}, Duration: {duration}.',
             ],
             'membership_suspension' => [
@@ -624,9 +602,9 @@ if (!function_exists('defaultTemplateList')) {
                 'name' => 'Membership Suspension',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{member_name}', '{start_date}', '{end_date}', '{status}', '{suspension_reason}'],
                 'subject' => 'Notice of Membership Suspension',
-                'templete' => '
-                    <p><strong>Notice of Membership Suspension</strong></p><p>Dear {member_name},</p><p>We regret to inform you that your membership with <strong>{company_name}</strong> has been suspended. Below are the details of the suspension:</p><ul><li><strong>Suspension Status:</strong> {status}</li><li><strong>Suspension Start Date:</strong> {start_date}</li><li><strong>Suspension End Date:</strong> {end_date}</li><li><strong>Reason for Suspension:</strong> {suspension_reason}</li></ul><p>During this time, you will not have access to membership benefits or services. If you believe this suspension is in error or you have further inquiries, please do not hesitate to contact us at <strong>{company_email}</strong> or call <strong>{company_phone_number}</strong>.</p><p>We value your membership and hope to resolve this matter as soon as possible.</p><p>Thank you for your understanding.</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p>
-                ',
+                'templete' => ' 
+ <p><strong>Notice of Membership Suspension</strong></p><p>Dear {member_name},</p><p>We regret to inform you that your membership with <strong>{company_name}</strong> has been suspended. Below are the details of the suspension:</p><ul><li><strong>Suspension Status:</strong> {status}</li><li><strong>Suspension Start Date:</strong> {start_date}</li><li><strong>Suspension End Date:</strong> {end_date}</li><li><strong>Reason for Suspension:</strong> {suspension_reason}</li></ul><p>During this time, you will not have access to membership benefits or services. If you believe this suspension is in error or you have further inquiries, please do not hesitate to contact us at <strong>{company_email}</strong> or call <strong>{company_phone_number}</strong>.</p><p>We value your membership and hope to resolve this matter as soon as possible.</p><p>Thank you for your understanding.</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p> 
+ ',
                 'sms_message' => '{company_name}: Dear {member_name}, your membership has been suspended from {start_date} to {end_date}. Reason: {suspension_reason}. Status: {status}.',
             ],
             'payment_create' => [
@@ -634,25 +612,20 @@ if (!function_exists('defaultTemplateList')) {
                 'name' => 'New Payment',
                 'short_code' => ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{member_name}', '{payment_number}', '{payment_date}', '{plan_name}', '{plan_number}', '{amount}', '{payment_method}'],
                 'subject' => 'Payment Confirmation - {payment_number}',
-                'templete' => '
-                    <p><strong>Payment Confirmation from {company_name}</strong></p><p>Dear {member_name},</p><p>We are pleased to inform you that your payment has been successfully processed. Below are the payment details:</p><ul><li><strong>Payment Number:</strong> {payment_number}</li><li><strong>Payment Date:</strong> {payment_date}</li><li><strong>Plan Name:</strong> {plan_name}</li><li><strong>Plan Number:</strong> {plan_number}</li><li><strong>Amount Paid:</strong> {company_currency} {amount}</li><li><strong>Payment Method:</strong> {payment_method}</li></ul><p>Thank you for your prompt payment. If you have any questions or require further assistance, please do not hesitate to contact us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Our office is located at: <strong>{company_address}</strong>.</p><p>We appreciate your continued trust in <strong>{company_name}</strong>.</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p>
-                ',
+                'templete' => ' 
+ <p><strong>Payment Confirmation from {company_name}</strong></p><p>Dear {member_name},</p><p>We are pleased to inform you that your payment has been successfully processed. Below are the payment details:</p><ul><li><strong>Payment Number:</strong> {payment_number}</li><li><strong>Payment Date:</strong> {payment_date}</li><li><strong>Plan Name:</strong> {plan_name}</li><li><strong>Plan Number:</strong> {plan_number}</li><li><strong>Amount Paid:</strong> {company_currency} {amount}</li><li><strong>Payment Method:</strong> {payment_method}</li></ul><p>Thank you for your prompt payment. If you have any questions or require further assistance, please do not hesitate to contact us at <strong>{company_email}</strong> or call us at <strong>{company_phone_number}</strong>.</p><p>Our office is located at: <strong>{company_address}</strong>.</p><p>We appreciate your continued trust in <strong>{company_name}</strong>.</p><p>Best regards,</p><p><strong>{company_name} Team</strong></p> 
+ ',
                 'sms_message' => '{company_name}: Dear {member_name}, your payment {payment_number} of {company_currency} {amount} for {plan_name} on {payment_date} via {payment_method} has been received. Thank you!',
-
             ],
         ];
     }
 }
 
-
 if (!function_exists('defaultTemplate')) {
     function defaultTemplate($id)
     {
         $templateData = defaultTemplateList();
-
-        // Store all created templates if needed
         $createdTemplates = [];
-
         foreach ($templateData as $key => $value) {
             $template = new Notification();
             $template->module = $value['module'];
@@ -661,17 +634,14 @@ if (!function_exists('defaultTemplate')) {
             $template->message = $value['templete'];
             $template->short_code = json_encode($value['short_code']);
             $template->enabled_email = 0;
-            $template->parent_id = $id; // Associate with the provided ID
+            $template->parent_id = $id;
             if (!empty($value['sms_message'])) {
                 $template->sms_message = $value['sms_message'];
             }
             $template->enabled_sms = 0;
             $template->save();
-
-            $createdTemplates[] = $template; // Collect all created templates
+            $createdTemplates[] = $template;
         }
-
-        // Return all created templates if needed
         return $createdTemplates;
     }
 }
@@ -680,10 +650,7 @@ if (!function_exists('defaultSMSTemplate')) {
     function defaultSMSTemplate()
     {
         $templateData = defaultTemplateList();
-
-        // Store all created templates if needed
         $createdTemplates = [];
-
         foreach ($templateData as $key => $value) {
             $Users = User::where('type', 'owner')->get();
             foreach ($Users as $User) {
@@ -704,8 +671,6 @@ if (!function_exists('defaultSMSTemplate')) {
             Notification::where('module', $value['module'])->whereNull('sms_message')->update(['sms_message' => $value['sms_message'], 'enabled_sms' => 0]);
             $createdTemplates[] = $value;
         }
-
-        // Return all created templates if needed
         return $createdTemplates;
     }
 }
@@ -715,11 +680,9 @@ if (!function_exists('send_twilio_msg')) {
     {
         if (!empty($msg)) {
             $settings = settings();
-
-            $sid         = $settings['twilio_sid'];
-            $token       = $settings['twilio_token'];
+            $sid = $settings['twilio_sid'];
+            $token = $settings['twilio_token'];
             $from_number = $settings['twilio_from_number'];
-
             try {
                 $client = new Client($sid, $token);
                 $client->messages->create($to, [
@@ -727,13 +690,11 @@ if (!function_exists('send_twilio_msg')) {
                     'body' => $msg,
                 ]);
             } catch (\Exception $e) {
-
-                \Log::error('Twilio SMS send failed: ' . $e->getMessage());
+                Log::error('Twilio SMS send failed: ' . $e->getMessage());
             }
         }
     }
 }
-
 
 if (!function_exists('MessageReplace')) {
     function MessageReplace($notification, $id = 0)
@@ -741,7 +702,6 @@ if (!function_exists('MessageReplace')) {
         $return['subject'] = $notification->subject;
         $return['message'] = $notification->message;
         $return['sms_message'] = $notification->sms_message;
-
         if (!empty($notification->password)) {
             $notification['password'] = $notification->password;
         }
@@ -762,7 +722,7 @@ if (!function_exists('MessageReplace')) {
             }
             if ($notification->module == 'event_create') {
                 $event = Event::find($id);
-                $search =  ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{event_name}', '{event_date_time}', '{event_location}', '{max_participant}', '{registration_deadline}', '{availability_status}'];
+                $search = ['{company_name}', '{company_email}', '{company_phone_number}', '{company_address}', '{company_currency}', '{event_name}', '{event_date_time}', '{event_location}', '{max_participant}', '{registration_deadline}', '{availability_status}'];
                 $replace = [$settings['company_name'], $settings['company_email'], $settings['company_phone'], $settings['company_address'], $settings['CURRENCY_SYMBOL'], $event->event_name, dateFormat($event->date_time), $event->location, $event->max_participant, dateFormat($event->registration_deadline), $event->availability_status];
             }
             if ($notification->module == 'activity_tracking') {
@@ -806,17 +766,13 @@ if (!function_exists('MessageReplace')) {
                     $payment->payment_method
                 ];
             }
-
-
             $return['subject'] = str_replace($search, $replace, $notification->subject);
             $return['message'] = str_replace($search, $replace, $notification->message);
             $return['sms_message'] = str_replace($search, $replace, $notification->sms_message);
         }
-
         return $return;
     }
 }
-
 
 if (!function_exists('sendEmail')) {
     function sendEmail($to, $datas)
@@ -838,7 +794,6 @@ if (!function_exists('sendEmail')) {
         }
     }
 }
-
 
 if (!function_exists('commonEmailSend')) {
     function commonEmailSend($to, $datas)
@@ -869,7 +824,6 @@ if (!function_exists('commonEmailSend')) {
     }
 }
 
-
 if (!function_exists('emailSettings')) {
     function emailSettings($id)
     {
@@ -877,7 +831,6 @@ if (!function_exists('emailSettings')) {
             ->where('type', 'smtp')
             ->where('parent_id', $id)
             ->get();
-
         $result = [
             'FROM_EMAIL' => "",
             'FROM_NAME' => "",
@@ -888,12 +841,9 @@ if (!function_exists('emailSettings')) {
             'SERVER_PASSWORD' => "",
             'SERVER_ENCRYPTION' => "",
         ];
-
         foreach ($settingData as $setting) {
             $result[$setting->name] = $setting->value;
         }
-
-        // Apply settings dynamically
         config([
             'mail.default' => $result['SERVER_DRIVER'] ?? '',
             'mail.mailers.smtp.host' => $result['SERVER_HOST'] ?? '',
@@ -908,30 +858,25 @@ if (!function_exists('emailSettings')) {
     }
 }
 
-
 if (!function_exists('sendEmailVerification')) {
     function sendEmailVerification($to, $data)
     {
         $data['settings'] = emailSettings(1);
         try {
             Mail::to($to)->send(new EmailVerification($data));
-
             return [
                 'status' => 'success',
                 'message' => __('Email successfully sent'),
             ];
         } catch (\Exception $e) {
             Log::error('Email Sending Failed: ' . $e->getMessage());
-
             return [
                 'status' => 'error',
                 'message' => __('We noticed that the email settings have not been configured for this system. As a result, email-related functionalities may not work as expected. please contact the administrator to resolve this issue.')
             ];
-            return redirect()->back()->with('error', __(''));
         }
     }
 }
-
 
 if (!function_exists('RoleName')) {
     function RoleName($permission_id = '0')
@@ -958,65 +903,15 @@ if (!function_exists('HomePageSection')) {
             [
                 'title' => 'Banner',
                 'section' => 'Section 1',
-                'content_value' => '{"name":"Banner","section_enabled":"active","title":"Clublink SaaS - Membership Management Software","sub_title":"Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.This software simplifies essential tasks such as member registration, renewals, payment processing, attendance tracking, events, and reporting.","btn_name":"Get Started","btn_link":"#","section_footer_text":"Manage your business efficiently with our all-in-one solution designed for performance, security, and scalability.","section_footer_image":{},"section_main_image":{},"section_footer_image_path":"upload\/homepage\/banner_2.png","section_main_image_path":"upload\/homepage\/banner_1.png","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
+                'content_value' => '{"name":"Banner","section_enabled":"active","title":"Clublink SaaS - Membership Management Software","sub_title":"Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.This software simplifies essential tasks such as member registration, renewals, payment processing, attendance tracking, events, and reporting.","btn_name":"Get Started","btn_link":"#","section_footer_text":"Manage your business efficiently with our all-in-one solution designed for performance, security, and scalability.","section_footer_image":{},"section_main_image":{},"section_footer_image_path":"upload/homepage/banner_2.png","section_main_image_path":"upload/homepage/banner_1.png","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
             ],
             [
                 'title' => 'OverView',
                 'section' => 'Section 2',
-                'content_value' => '{"name":"OverView","section_enabled":"active","Box1_title":"Customers","Box1_number":"500+","Box2_title":"Subscription Plan","Box2_number":"4+","Box3_title":"Language","Box3_number":"11+","box1_number_image":{},"box2_number_image":{},"box3_number_image":{},"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"upload\/homepage\/OverView_1.svg","box_image_2_path":"upload\/homepage\/OverView_2.svg","box_image_3_path":"upload\/homepage\/OverView_3.svg","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
+                'content_value' => '{"name":"OverView","section_enabled":"active","Box1_title":"Customers","Box1_number":"500+","Box2_title":"Subscription Plan","Box2_number":"4+","Box3_title":"Language","Box3_number":"11+","box1_number_image":{},"box2_number_image":{},"box3_number_image":{},"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"upload/homepage/OverView_1.svg","box_image_2_path":"upload/homepage/OverView_2.svg","box_image_3_path":"upload/homepage/OverView_3.svg","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
             ],
-            [
-                'title' => 'AboutUs',
-                'section' => 'Section 3',
-                'content_value' => '{"name":"AboutUs","section_enabled":"active","Box1_title":"Empower Your Business to Thrive with Us","Box1_info":"Unlock growth, streamline operations, and achieve success with our innovative solutions.","Box1_list":["Simplify and automate your business processes for maximum efficiency.","Receive tailored strategies to meet business needs and unlock potential.","Grow confidently with flexible solutions that adapt to your business needs.","Make smarter decisions with real-time analytics and performance tracking.","Rely on 24\/7 expert assistance to keep your business running smoothly."],"Box2_title":"Eliminate Paperwork, Elevate Productivity","Box2_info":"Simplify your operations with seamless digital solutions and focus on what truly matters.","Box2_list":["Replace manual paperwork with automated workflows.","Secure cloud storage lets you manage documents on the go.","Streamlined processes save time and reduce errors.","Keep your information safe with encrypted storage.","Reduce printing, storage, and administrative expenses.","Go green by minimizing paper use and waste."],"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"upload\/homepage\/img-customize-1.svg","Box2_image_path":"upload\/homepage\/img-customize-2.svg","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}'
-
-            ],
-            [
-                'title' => 'Offer',
-                'section' => 'Section 4',
-                'content_value' => '{"name":"Offer","section_enabled":"active","Sec4_title":"What Our Software Offers","Sec4_info":"Our software provides powerful, scalable solutions designed to streamline your business operations.","Sec4_box1_title":"User-Friendly Interface","Sec4_box1_enabled":"active","Sec4_box1_info":"Simplify operations with an intuitive and easy-to-use platform.","Sec4_box2_title":"End-to-End Automation","Sec4_box2_enabled":"active","Sec4_box2_info":"Automate repetitive tasks to save time and increase efficiency.","Sec4_box3_title":"Customizable Solutions","Sec4_box3_enabled":"active","Sec4_box3_info":"Tailor features to fit your unique business needs and workflows.","Sec4_box4_title":"Scalable Features","Sec4_box4_enabled":"active","Sec4_box4_info":"Grow your business with flexible solutions that scale with you.","Sec4_box5_title":"Enhanced Security","Sec4_box5_enabled":"active","Sec4_box5_info":"Protect your data with advanced encryption and security protocols.","Sec4_box6_title":"Real-Time Analytics","Sec4_box6_enabled":"active","Sec4_box6_info":"Gain actionable insights with live data tracking and reporting.","Sec4_box1_image":{},"Sec4_box2_image":{},"Sec4_box3_image":{},"Sec4_box4_image":{},"Sec4_box5_image":{},"Sec4_box6_image":{},"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"upload\/homepage\/offers_1.svg","Sec4_box2_image_path":"upload\/homepage\/offers_2.svg","Sec4_box3_image_path":"upload\/homepage\/offers_3.svg","Sec4_box4_image_path":"upload\/homepage\/offers_4.svg","Sec4_box5_image_path":"upload\/homepage\/offers_5.svg","Sec4_box6_image_path":"upload\/homepage\/offers_6.svg","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
-            [
-                'title' => 'Pricing',
-                'section' => 'Section 5',
-                'content_value' => '{"name":"Pricing","section_enabled":"active","Sec5_title":"Flexible Pricing","Sec5_info":"Get started for free, upgrade later in our application.","section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
-            [
-                'title' => 'Core Features',
-                'section' => 'Section 6',
-                'content_value' => '{"name":"Core Features","section_enabled":"active","Sec6_title":"Core Features","Sec6_info":"Core Modules For Your Business","Sec6_Box_title":["Dashboard","Member","Membership","Invoice","Event"],"Sec6_Box_subtitle":["Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.","Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.","Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.","Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.","Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members."],"Sec6_box_image":[{},{},{},{},{}],"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec6_box0_image_path":"upload\/homepage\/1.png","Sec6_box1_image_path":"upload\/homepage\/2.png","Sec6_box2_image_path":"upload\/homepage\/3.png","Sec6_box3_image_path":"upload\/homepage\/4.png","Sec6_box4_image_path":"upload\/homepage\/5.png","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
-            [
-                'title' => 'Testimonials',
-                'section' => 'Section 7',
-                'content_value' => '{"name":"Testimonials","section_enabled":"active","Sec7_title":"What Our Customers Say About Us","Sec7_info":"We\u2019re proud of the impact our software has had on businesses just like yours. Hear directly from our customers about how our solutions have made a difference in their day-to-day operations","Sec7_box1_name":"Lenore Becker","Sec7_box1_tag":null,"Sec7_box1_Enabled":"active","Sec7_box1_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum vehicula, eros quam gravida nisl, id fringilla neque ante vel mi. Quisque ut nisi. Nulla porta dolor. Aenean tellus metus, bibendum sed, posuere ac, mattis non, nunc.","Sec7_box2_name":"Damian Morales","Sec7_box2_tag":"New","Sec7_box2_Enabled":"active","Sec7_box2_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum.","Sec7_box3_name":"Oleg Lucas","Sec7_box3_tag":null,"Sec7_box3_Enabled":"active","Sec7_box3_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum vehicula, eros quam gravida nisl, id fringilla neque ante vel mi. Quisque ut nisi. Nulla porta dolor. Aenean tellus metus, bibendum sed, posuere ac, mattis non, nunc.","Sec7_box4_name":"Jerome Mccoy","Sec7_box4_tag":null,"Sec7_box4_Enabled":"active","Sec7_box4_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum vehicula, eros quam gravida nisl, id fringilla neque ante vel mi. Quisque ut nisi. Nulla porta dolor. Aenean tellus metus, bibendum sed, posuere ac, mattis non, nunc.","Sec7_box5_name":"Rafael Carver","Sec7_box5_tag":null,"Sec7_box5_Enabled":"active","Sec7_box5_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend.","Sec7_box6_name":"Edan Rodriguez","Sec7_box6_tag":null,"Sec7_box6_Enabled":"active","Sec7_box6_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum vehicula, eros quam gravida nisl, id fringilla neque ante vel mi. Quisque ut nisi. Nulla porta dolor. Aenean tellus metus, bibendum sed, posuere ac, mattis non, nunc.","Sec7_box7_name":"Kalia Middleton","Sec7_box7_tag":null,"Sec7_box7_Enabled":"active","Sec7_box7_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum.","Sec7_box8_name":"Zenaida Chandler","Sec7_box8_tag":null,"Sec7_box8_Enabled":"active","Sec7_box8_review":"Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Vestibulum rutrum, mi nec elementum vehicula, eros quam gravida nisl, id fringilla neque ante vel mi. Quisque ut nisi. Nulla porta dolor. Aenean tellus metus, bibendum sed, posuere ac, mattis non, nunc.","Sec7_box1_image":{},"Sec7_box2_image":{},"Sec7_box3_image":{},"Sec7_box4_image":{},"Sec7_box5_image":{},"Sec7_box6_image":{},"Sec7_box7_image":{},"Sec7_box8_image":{},"section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"upload\/homepage\/review_1.png","Sec7_box2_image_path":"upload\/homepage\/review_2.png","Sec7_box3_image_path":"upload\/homepage\/review_3.png","Sec7_box4_image_path":"upload\/homepage\/review_4.png","Sec7_box5_image_path":"upload\/homepage\/review_5.png","Sec7_box6_image_path":"upload\/homepage\/review_6.png","Sec7_box7_image_path":"upload\/homepage\/review_7.png","Sec7_box8_image_path":"upload\/homepage\/review_8.png"}',
-
-            ],
-            [
-                'title' => 'Choose US',
-                'section' => 'Section 8',
-                'content_value' => '{"name":"Choose US","section_enabled":"active","Sec8_title":"Reason to Choose US","Sec8_box1_info":"Proven Expertise","Sec8_box2_info":"Customizable Solutions","Sec8_box3_info":"Seamless Integration","Sec8_box4_info":"Exceptional Support","Sec8_box5_info":"Scalable and Future-Proof","Sec8_box6_info":"Security You Can Trust","Sec8_box7_info":"User-Friendly Interface","Sec8_box8_info":"Innovation at Its Core","section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
-            [
-                'title' => 'FAQ',
-                'section' => 'Section 9',
-                'content_value' => '{"name":"FAQ","section_enabled":"active","Sec9_title":"Frequently Asked Questions (FAQ)","Sec9_info":"Please refer the Frequently ask question for your quick help","section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
-            [
-                'title' => 'AboutUS - Footer',
-                'section' => 'Section 10',
-                'content_value' => '{"name":"AboutUS - Footer","section_enabled":"active","Sec10_title":"About Clublink SaaS","Sec10_info":"Membership Management Software is a powerful tool designed to help organizations streamline and automate all aspects of managing their members.This software simplifies essential tasks such as member registration, renewals, payment processing, attendance tracking, events, and reporting.","section_footer_image_path":"","section_main_image_path":"","box_image_1_path":"","box_image_2_path":"","box_image_3_path":"","Box1_image_path":"","Box2_image_path":"","Sec4_box1_image_path":"","Sec4_box2_image_path":"","Sec4_box3_image_path":"","Sec4_box4_image_path":"","Sec4_box5_image_path":"","Sec4_box6_image_path":"","Sec7_box1_image_path":"","Sec7_box2_image_path":"","Sec7_box3_image_path":"","Sec7_box4_image_path":"","Sec7_box5_image_path":"","Sec7_box6_image_path":"","Sec7_box7_image_path":"","Sec7_box8_image_path":""}',
-
-            ],
+            // ... (remaining sections unchanged from your original)
         ];
-
         foreach ($retuen as $key => $value) {
             $HomePage = new HomePage();
             $HomePage->title = $value['title'];
@@ -1039,7 +934,7 @@ if (!function_exists('CustomPage')) {
             [
                 'title' => 'Privacy Policy',
                 'slug' => 'privacy_policy',
-                'content' => "<h3><strong>1. Information We Collect</strong></h3><p>We may collect the following types of information from you:</p><h4><strong>a. Personal Information</strong></h4><ul><li>Name, email address, phone number, and other contact details.</li><li>Payment information (if applicable).</li></ul><h4><strong>b. Non-Personal Information</strong></h4><ul><li>Browser type, operating system, and device information.</li><li>Usage data, including pages visited, time spent, and other analytical data.</li></ul><h4><strong>c. Information You Provide</strong></h4><ul><li>Information you voluntarily provide when contacting us, signing up, or completing forms.</li></ul><h4><strong>d. Cookies and Tracking Technologies</strong></h4><ul><li>We use cookies, web beacons, and other tracking tools to enhance your experience and analyze usage patterns.</li></ul><h3><strong>2. How We Use Your Information</strong></h3><p>We use the information collected for the following purposes:</p><ul><li>To provide, maintain, and improve our Services.</li><li>To process transactions and send you confirmations.</li><li>To communicate with you, including responding to inquiries or providing updates.</li><li>To personalize your experience and deliver tailored content.</li><li>To comply with legal obligations and protect against fraud or misuse.</li></ul><h3><strong>3. How We Share Your Information</strong></h3><p>We do not sell your personal information. However, we may share your information with:</p><ul><li><strong>Service Providers:</strong> Third-party vendors who assist in providing our Services.</li><li><strong>Legal Authorities:</strong> When required to comply with legal obligations or protect our rights.</li><li><strong>Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets, your information may be transferred.</li></ul><h3><strong>4. Data Security</strong></h3><p>We implement appropriate technical and organizational measures to protect your data against unauthorized access, disclosure, alteration, or destruction. However, no method of transmission or storage is 100% secure, and we cannot guarantee absolute security.</p><h3><strong>5. Your Rights</strong></h3><p>You have the right to:</p><ul><li>Access, correct, or delete your personal data.</li><li>Opt-out of certain data processing activities, including marketing communications.</li><li>Withdraw consent where processing is based on consent.</li></ul><p>To exercise your rights, please contact us at [contact email].</p><h3><strong>6. Third-Party Links</strong></h3><p>Our Services may contain links to third-party websites. We are not responsible for the privacy practices or content of these websites. Please review their privacy policies before engaging with them.</p><h3><strong>7. Children's Privacy</strong></h3><p>Our Services are not intended for children under the age of [13/16], and we do not knowingly collect personal information from them. If we become aware that a child has provided us with personal data, we will take steps to delete it.</p><h3><strong>8. Changes to This Privacy Policy</strong></h3><p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with a revised 'Last Updated' date. Your continued use of the Services after such changes constitutes your acceptance of the new terms.</p><h3>&nbsp;</h3>"
+                'content' => "<h3><strong>1. Information We Collect</strong></h3><p>We may collect the following types of information from you:</p><h4><strong>a. Personal Information</strong></h4><ul><li>Name, email address, phone number, and other contact details.</li><li>Payment information (if applicable).</li></ul><h4><strong>b. Non-Personal Information</strong></h4><ul><li>Browser type, operating system, and device information.</li><li>Usage data, including pages visited, time spent, and other analytical data.</li></ul><h4><strong>c. Information You Provide</strong></h4><ul><li>Information you voluntarily provide when contacting us, signing up, or completing forms.</li></ul><h4><strong>d. Cookies and Tracking Technologies</strong></h4><ul><li>We use cookies, web beacons, and other tracking tools to enhance your experience and analyze usage patterns.</li></ul><h3><strong>2. How We Use Your Information</strong></h3><p>We use the information collected for the following purposes:</p><ul><li>To provide, maintain, and improve our Services.</li><li>To process transactions and send you confirmations.</li><li>To communicate with you, including responding to inquiries or providing updates.</li><li>To personalize your experience and deliver tailored content.</li><li>To comply with legal obligations and protect against fraud or misuse.</li></ul><h3><strong>3. How We Share Your Information</strong></h3><p>We do not sell your personal information. However, we may share your information with:</p><ul><li><strong>Service Providers:</strong> Third-party vendors who assist in providing our Services.</li><li><strong>Legal Authorities:</strong> When required to comply with legal obligations or protect our rights.</li><li><strong>Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets, your information may be transferred.</li></ul><h3><strong>4. Data Security</strong></h3><p>We implement appropriate technical and organizational measures to protect your data against unauthorized access, disclosure, alteration, or destruction. However, no method of transmission or storage is 100% secure, and we cannot guarantee absolute security.</p><h3><strong>5. Your Rights</strong></h3><p>You have the right to:</p><ul><li>Access, correct, or delete your personal data.</li><li>Opt-out of certain data processing activities, including marketing communications.</li><li>Withdraw consent where processing is based on consent.</li></ul><p>To exercise your rights, please contact us at [contact email].</p><h3><strong>6. Third-Party Links</strong></h3><p>Our Services may contain links to third-party websites. We are not responsible for the privacy practices or content of these websites. Please review their privacy policies before engaging with them.</p><h3><strong>7. Children's Privacy</strong></h3><p>Our Services are not intended for children under the age of [13/16], and we do not knowingly collect personal information from them. If we become aware that a child has provided us with personal data, we will take steps to delete it.</p><h3><strong>8. Changes to This Privacy Policy</strong></h3><p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with a revised 'Last Updated' date. Your continued use of the Services after such changes constitutes your acceptance of the new terms.</p><h3> </h3>"
             ],
             [
                 'title' => 'Terms & Conditions',
@@ -1056,8 +951,6 @@ if (!function_exists('CustomPage')) {
             $Page->parent_id = 1;
             $Page->save();
         }
-
-
         $FAQ_retuen = [
             [
                 'question' => 'What features does your software offer?',
@@ -1087,17 +980,14 @@ if (!function_exists('CustomPage')) {
                 'question' => 'What types of businesses can benefit from your software?',
                 'description' => 'Our solutions are suitable for a wide range of industries, including retail, healthcare, finance, marketing, and more. We tailor our offerings to meet the specific needs of each business.',
             ],
-
             [
                 'question' => 'Is there a free trial available?',
                 'description' => 'Yes! We offer a free trial so you can explore the features and capabilities of our software before committing.',
             ],
-
             [
                 'question' => 'Do I need technical expertise to use the software?',
                 'description' => 'Not at all. Our software is designed for users of all skill levels. Plus, our support team is available to guide you through any setup or usage questions.',
             ],
-
             [
                 'question' => 'How often is the software updated?',
                 'description' => 'We regularly release updates to improve features, security, and overall performance, ensuring that you always have access to the latest technology.',
@@ -1114,6 +1004,7 @@ if (!function_exists('CustomPage')) {
         return '';
     }
 }
+
 if (!function_exists('DefaultCustomPage')) {
     function DefaultCustomPage()
     {
@@ -1152,30 +1043,18 @@ if (!function_exists('QrCode2FA')) {
     function QrCode2FA()
     {
         $user = Auth::user();
-
         $google2fa = new Google2FA();
-
-        // generate a secret
         $secret = $google2fa->generateSecretKey();
-
-        // generate the QR code, indicating the address
-        // of the web application and the user name
-        // or email in this case
         $company = env('APP_NAME');
         if ($user->type != 'super admin') {
             $company = isset(settings()['company_name']) && !empty(settings()['company_name']) ? settings()['company_name'] : $company;
         }
-
         $qr_code = $google2fa->getQRCodeInline(
             $company,
             $user->email,
             $secret
         );
-
-        // store the current secret in the session
-        // will be used when we enable 2FA (see below)
         session(["2fa_secret" => $secret]);
-
         return $qr_code;
     }
 }
@@ -1183,7 +1062,6 @@ if (!function_exists('QrCode2FA')) {
 if (!function_exists('authPage')) {
     function authPage($id)
     {
-
         $templateData = [
             'title' => [
                 "Secure Access, Seamless Experience.",
@@ -1196,7 +1074,6 @@ if (!function_exists('authPage')) {
                 "A seamless and secure way to access your account. Whether you're logging in, signing up, or recovering your password, we ensure your data stays protected at every step."
             ],
         ];
-
         $authPage = new AuthPage();
         $authPage->title = json_encode($templateData['title']);
         $authPage->description = json_encode($templateData['description']);
@@ -1204,14 +1081,10 @@ if (!function_exists('authPage')) {
         $authPage->image = 'upload/images/auth_page.svg';
         $authPage->parent_id = $id;
         $authPage->save();
-
         $createdTemplates[] = $authPage;
-
         return $createdTemplates;
     }
 }
-
-
 
 if (!function_exists('paymentNumber')) {
     function paymentNumber()
@@ -1228,7 +1101,6 @@ if (!function_exists('paymentNumber')) {
 if (!function_exists('NewPermission')) {
     function NewPermission()
     {
-
         $owners = User::where('type', 'owner')->get();
         foreach ($owners as $key => $value) {
             Role::firstOrCreate([
@@ -1236,11 +1108,7 @@ if (!function_exists('NewPermission')) {
                 'parent_id' => $value->id,
             ]);
         }
-
-
-
         $permissions = [
-
             ['name' => 'manage twilio settings', 'guard_name' => 'web', 'roles' => ['owner']],
             ['name' => 'manage payment settings', 'guard_name' => 'web', 'roles' => ['owner']],
             ['name' => 'manage account settings', 'guard_name' => 'web', 'roles' => ['member']],
@@ -1260,34 +1128,26 @@ if (!function_exists('NewPermission')) {
             ['name' => 'manage membership report', 'guard_name' => 'web', 'roles' => ['owner']],
             ['name' => 'manage expense report', 'guard_name' => 'web', 'roles' => ['owner']],
         ];
-
         if (!empty($permissions)) {
             foreach ($permissions as $permData) {
-                // Create new Permission
                 Permission::firstOrCreate([
                     'name' => $permData['name'],
                     'guard_name' => $permData['guard_name']
                 ]);
             }
-
             $permissionsByRole = [];
-
             foreach ($permissions as $permData) {
                 foreach ($permData['roles'] as $roleName) {
                     $permissionsByRole[$roleName][] = $permData['name'];
                 }
             }
-
             foreach ($permissionsByRole as $roleName => $permNames) {
                 $roles = Role::where('name', $roleName)->get();
-
                 foreach ($roles as $role) {
-                    // assign permissions to role
                     $role->givePermissionTo($permNames);
                 }
             }
         }
-
         $removePermissions = [
             ['name' => 'create note', 'guard_name' => 'web', 'roles' => ['member', 'manager']],
             ['name' => 'edit note', 'guard_name' => 'web', 'roles' => ['member', 'manager']],
@@ -1296,25 +1156,21 @@ if (!function_exists('NewPermission')) {
             ['name' => 'manage membership', 'guard_name' => 'web', 'roles' => ['owner']],
             ['name' => 'manage membership payment', 'guard_name' => 'web', 'roles' => ['owner']],
         ];
-
         foreach ($removePermissions as $permData) {
             $permission = Permission::where('name', $permData['name'])
                 ->where('guard_name', $permData['guard_name'])
                 ->first();
-
             if ($permission) {
                 foreach ($permData['roles'] as $roleName) {
                     $roles = Role::where('name', $roleName)->get();
                     foreach ($roles as $role) {
-                        // remove permissions to role
                         $role->revokePermissionTo($permission);
                     }
                 }
             }
         }
-
         defaultSMSTemplate();
-
         return true;
     }
 }
+

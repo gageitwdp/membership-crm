@@ -368,7 +368,7 @@
                                                     </a>
                                                 @endif
 
-                                                @if (\Auth::user()->type != 'member' && $payment->status == 'Pending')
+                                                @if (\Auth::user()?->type !== 'member' && $payment->status == 'Pending')
                                                     <a class="avtar avtar-xs btn-link-secondary text-secondary"
                                                         data-bs-toggle="tooltip"
                                                         data-bs-original-title="{{ __('Accept') }}"

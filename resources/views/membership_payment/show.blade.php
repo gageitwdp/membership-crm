@@ -96,8 +96,8 @@
             }
 
             var tx_ref = "RX1_" + Math.floor((Math.random() * 1000000000) + 1);
-            var customer_email = '{{ \Auth::user()->email }}';
-            var customer_name = '{{ \Auth::user()->name }}';
+            var customer_email = '{{ \Auth::user()?->email ?? '' }}';
+            var customer_name = '{{ \Auth::user()?->name ?? }}';
             var flutterwave_public_key = '{{ $invoicePaymentSettings['flutterwave_public_key'] }}';
             var currency = '{{ $invoicePaymentSettings['CURRENCY'] }}';
 

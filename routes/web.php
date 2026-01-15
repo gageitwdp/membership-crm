@@ -30,6 +30,7 @@ use App\Http\Controllers\MembershipController;
 use App\Http\Controllers\MembershipPlanController;
 use App\Http\Controllers\MembershipSuspensionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\PublicMemberRegistrationController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -44,6 +45,13 @@ use Illuminate\Support\Facades\Auth;
 */
 
 require __DIR__ . '/auth.php';
+
+// Public Member Registration Routes (no authentication required)
+Route::middleware(['XSS'])->group(function () {
+    Route::get('register-member', [PublicMemberRegistrationController::class, 'create'])->name('public.register');
+    Route::post('register-member', [PublicMemberRegistrationController::class, 'store'])->name('public.register.store');
+    Route::get('register-success', [PublicMemberRegistrationController::class, 'success'])->name('public.register.success');
+});
 
 Route::get('/', [HomeController::class, 'index'])->middleware(
     [

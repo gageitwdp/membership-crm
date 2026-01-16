@@ -280,7 +280,6 @@ Route::group(
         Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
         Route::delete('member/document/{id}/destroy', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
         Route::get('member/payment/{id}', [MemberController::class, 'showPaymentPage'])->name('member.payment');
-        Route::delete('member/document/{id}/delete', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
     }
 );
 

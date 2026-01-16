@@ -6,6 +6,11 @@
 @section('tab-title')
     {{ __('Member Registration') }}
 @endsection
+<!-- Debug Info (Remove in production) -->
+<!-- Stripe Enabled: {{ $stripeEnabled ? 'Yes' : 'No' }} -->
+<!-- Stripe Payment Setting: {{ $settings['STRIPE_PAYMENT'] ?? 'not set' }} -->
+<!-- Has Stripe Key: {{ !empty($settings['STRIPE_KEY']) ? 'Yes' : 'No' }} -->
+<!-- Has Stripe Secret: {{ !empty($settings['STRIPE_SECRET']) ? 'Yes' : 'No' }} -->
 @push('script-page')
     @if ($stripeEnabled)
         <script src="https://js.stripe.com/v3/"></script>
@@ -334,7 +339,6 @@
                 @endif
 
                 <!-- Payment Section (Stripe) -->
-                @if($stripeEnabled)
                 <div id="paymentSection" class="col-md-12" style="display: none;">
                     <div class="card mb-3 border-primary">
                         <div class="card-header bg-primary text-white">
@@ -343,26 +347,32 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div class="alert alert-warning mb-3">
-                                <i class="fas fa-lock"></i> {{ __('Your payment information is secured by Stripe') }}
-                            </div>
-                            
-                            <div class="form-group mb-3">
-                                <label for="card-element" class="form-label">
-                                    {{ __('Credit or Debit Card') }} <span class="text-danger">*</span>
-                                </label>
-                                <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;"></div>
-                                <div id="card-errors" class="text-danger mt-2" role="alert"></div>
-                            </div>
+                            @if($stripeEnabled)
+                                <div class="alert alert-warning mb-3">
+                                    <i class="fas fa-lock"></i> {{ __('Your payment information is secured by Stripe') }}
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label for="card-element" class="form-label">
+                                        {{ __('Credit or Debit Card') }} <span class="text-danger">*</span>
+                                    </label>
+                                    <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;"></div>
+                                    <div id="card-errors" class="text-danger mt-2" role="alert"></div>
+                                </div>
 
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> 
-                                {{ __('Payment will be processed after successful registration') }}
-                            </small>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    {{ __('Payment will be processed after successful registration') }}
+                                </small>
+                            @else
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    {{ __('Online payment is not currently configured. Please contact the administrator or select no plan to register without payment.') }}
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
-                @endif
 
                 <div class="col-md-12">
                     <div class="form-floating mb-3">

@@ -11,11 +11,11 @@
             </div>
             <div class="form-group col-md-6">
                 {{ Form::label('duration', __('Duration'), ['class' => 'form-label']) }}
-                {{ Form::select('duration', ['' => 'Select Frequency', 'Monthly' => 'Monthly', '3-Month' => '3-Month', '6-Month' => '6-Month', 'Yearly' => 'Yearly'], null, ['class' => 'form-control']) }}
+                {{ Form::select('duration', ['' => 'Select Frequency', 'Day Pass' => 'Day Pass', 'Monthly' => 'Monthly', '3-Month' => '3-Month', '6-Month' => '6-Month', 'Yearly' => 'Yearly'], null, ['class' => 'form-control']) }}
             </div>
             <div class="form-group col-md-6">
                 {{ Form::label('billing_frequency', __('billing frequency'), ['class' => 'form-label']) }}
-                {{ Form::select('billing_frequency', ['' => 'Select Frequency', 'Monthly' => 'Monthly', '3-Month' => '3-Month', '6-Month' => '6-Month', 'Yearly' => 'Yearly'], null, ['class' => 'form-control']) }}
+                {{ Form::select('billing_frequency', ['' => 'Select Frequency', 'Day Pass' => 'Day Pass', 'Monthly' => 'Monthly', '3-Month' => '3-Month', '6-Month' => '6-Month', 'Yearly' => 'Yearly'], null, ['class' => 'form-control']) }}
             </div>
             {{-- <div class="form-group col-md-6">
             {{ Form::label('benefits', __('Benefits'), ['class' => 'form-label']) }}

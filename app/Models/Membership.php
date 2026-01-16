@@ -165,7 +165,9 @@ class Membership extends Model
         $expiry_date = null;
 
         if ($plan) {
-            if ($plan->duration == 'Monthly') {
+            if ($plan->duration == 'Day Pass') {
+                $expiry_date = Carbon::now()->addDays(1)->format('Y-m-d');
+            } elseif ($plan->duration == 'Monthly') {
                 $expiry_date = Carbon::now()->addMonths(1)->format('Y-m-d');
             } elseif ($plan->duration == '3-Month') {
                 $expiry_date = Carbon::now()->addMonths(3)->format('Y-m-d');

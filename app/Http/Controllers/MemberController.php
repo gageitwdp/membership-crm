@@ -435,4 +435,21 @@ class MemberController extends Controller
         $document->delete();
         return redirect()->back()->with('success', __('Document successfully deleted.'));
     }
+
+    /**
+     * Show payment page for logged-in member
+     */
+    public function showPaymentPage($encryptedId)
+    {
+        try {
+            $id = Crypt::decrypt($encryptedId);
+            $membershipPlan = MembershipPlan::where('id', $id)
+                ->where('parent_id', parentId())
+                ->firstOrFail();
+
+            return view('member.payment', compact('membershipPlan'));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', __('Invalid membership plan.'));
+        }
+    }
 }

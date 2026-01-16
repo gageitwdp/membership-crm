@@ -50,6 +50,7 @@ require __DIR__ . '/auth.php';
 Route::middleware(['XSS'])->group(function () {
     Route::get('register-member', [PublicMemberRegistrationController::class, 'create'])->name('public.register');
     Route::post('register-member', [PublicMemberRegistrationController::class, 'store'])->name('public.register.store');
+    Route::post('register-member/payment', [PublicMemberRegistrationController::class, 'processPayment'])->name('public.register.payment');
     Route::get('register-success', [PublicMemberRegistrationController::class, 'success'])->name('public.register.success');
 });
 
@@ -277,6 +278,8 @@ Route::group(
         Route::post('member/{id}/document/store', [MemberController::class, 'documentStore'])->name('member.document.store');
         Route::get('member/document/{id}/edit', [MemberController::class, 'documentEdit'])->name('member.document.edit');
         Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
+        Route::delete('member/document/{id}/destroy', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
+        Route::get('member/payment/{id}', [MemberController::class, 'showPaymentPage'])->name('member.payment');
         Route::delete('member/document/{id}/delete', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
     }
 );

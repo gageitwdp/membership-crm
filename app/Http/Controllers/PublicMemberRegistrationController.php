@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Member;
 use App\Models\Membership;
 use App\Models\MembershipPlan;
+use App\Models\MembershipPayment;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -45,6 +46,9 @@ class PublicMemberRegistrationController extends Controller
         );
 
         if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $validator->errors()->first()], 400);
+            }
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -57,6 +61,9 @@ class PublicMemberRegistrationController extends Controller
                 ->first();
 
             if (!$userRole) {
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => false, 'message' => __('Member role not found. Please contact the administrator.')], 400);
+                }
                 return redirect()->back()
                     ->with('error', __('Member role not found. Please contact the administrator.'))
                     ->withInput();
@@ -125,11 +132,33 @@ class PublicMemberRegistrationController extends Controller
             // Send notification email if configured
             $this->sendRegistrationNotification($member);
 
+            // If payment is required (plan selected), return member ID for payment
+            if (!empty($request->plan_id) && $request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => __('Registration successful! Processing payment...'),
+                    'member_id' => $member->id
+                ]);
+            }
+
+            // No payment needed or non-AJAX request
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => __('Registration successful!'),
+                    'redirect' => route('public.register.success')
+                ]);
+            }
+
             return redirect()->route('public.register.success')
                 ->with('success', __('Registration successful! You can now log in with your credentials.'));
 
         } catch (\Exception $e) {
             \Log::error('Public member registration error: ' . $e->getMessage());
+            
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => __('An error occurred during registration. Please try again.')], 500);
+            }
             
             return redirect()->back()
                 ->with('error', __('An error occurred during registration. Please try again.'))
@@ -218,5 +247,101 @@ class PublicMemberRegistrationController extends Controller
             \Log::error('Public registration notification error: ' . $e->getMessage());
             // Don't fail registration if notification fails
         }
+    }
+
+    /**
+     * Process Stripe payment for membership plan
+     */
+    public function processPayment(Request $request)
+    {
+        $validator = \Validator::make(
+            $request->all(),
+            [
+                'member_id' => 'required|exists:members,id',
+                'plan_id' => 'required|exists:membership_plans,id',
+                'stripeToken' => 'required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 400);
+        }
+
+        try {
+            $member = Member::findOrFail($request->member_id);
+            $plan = MembershipPlan::findOrFail($request->plan_id);
+            $settings = invoicePaymentSettings(2); // Get settings for owner ID 2
+
+            if ($settings['STRIPE_PAYMENT'] != 'on' || empty($settings['STRIPE_SECRET'])) {
+                return response()->json(['error' => 'Stripe payment is not enabled'], 400);
+            }
+
+            // Process Stripe payment
+            \Stripe\Stripe::setApiKey($settings['STRIPE_SECRET']);
+            $transactionID = uniqid('PUBLIC_REG_', true);
+
+            $charge = \Stripe\Charge::create([
+                "amount" => 100 * $plan->price, // Convert to cents
+                "currency" => $settings['CURRENCY'] ?? 'usd',
+                "source" => $request->stripeToken,
+                "description" => "Membership Plan Registration - " . $plan->plan_name,
+                "metadata" => [
+                    "order_id" => $transactionID,
+                    "member_id" => $member->id,
+                    "plan_id" => $plan->id
+                ],
+            ]);
+
+            if ($charge['paid'] && $charge['status'] == 'succeeded') {
+                // Create payment record
+                $payment = new MembershipPayment();
+                $payment->payment_id = $this->generatePaymentNumber();
+                $payment->member_id = $member->id;
+                $payment->plan_id = $plan->id;
+                $payment->transaction_id = $transactionID;
+                $payment->payment_type = 'Stripe';
+                $payment->amount = $plan->price;
+                $payment->receipt = $charge['receipt_url'] ?? '';
+                $payment->notes = 'Public Registration Payment';
+                $payment->payment_status = 'succeeded';
+                $payment->parent_id = 2;
+                $payment->save();
+
+                // Activate membership
+                $membership = Membership::where('member_id', $member->id)
+                    ->where('plan_id', $plan->id)
+                    ->latest()
+                    ->first();
+
+                if ($membership) {
+                    $membership->status = 'Active';
+                    $membership->save();
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment successful! Your membership is now active.',
+                    'redirect' => route('public.register.success')
+                ]);
+            }
+
+            return response()->json(['error' => 'Payment failed. Please try again.'], 400);
+
+        } catch (\Exception $e) {
+            \Log::error('Public registration payment error: ' . $e->getMessage());
+            return response()->json(['error' => 'Payment processing failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Generate payment number
+     */
+    private function generatePaymentNumber()
+    {
+        $latestPayment = MembershipPayment::where('parent_id', 2)
+            ->orderBy('payment_id', 'desc')
+            ->first();
+
+        return $latestPayment ? $latestPayment->payment_id + 1 : 1;
     }
 }

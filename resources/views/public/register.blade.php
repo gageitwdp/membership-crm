@@ -1,27 +1,145 @@
 @extends('layouts.auth')
 @php
     $settings = settingsById(2);
+    $stripeEnabled = $settings['STRIPE_PAYMENT'] == 'on' && !empty($settings['STRIPE_KEY']) && !empty($settings['STRIPE_SECRET']);
 @endphp
 @section('tab-title')
     {{ __('Member Registration') }}
 @endsection
 @push('script-page')
+    @if ($stripeEnabled)
+        <script src="https://js.stripe.com/v3/"></script>
+    @endif
     @if (isset($settings['google_recaptcha']) && $settings['google_recaptcha'] == 'on')
         {!! NoCaptcha::renderJs() !!}
     @endif
     <script>
-        // Toggle membership plan section visibility
+        // Toggle membership plan section and payment
         document.addEventListener('DOMContentLoaded', function() {
             const planSection = document.getElementById('planSection');
+            const paymentSection = document.getElementById('paymentSection');
             const planSelect = document.getElementById('plan_id');
+            const registerForm = document.getElementById('register-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const submitText = document.getElementById('submit-text');
             
             if (planSelect) {
                 planSelect.addEventListener('change', function() {
                     if (this.value) {
                         planSection.style.display = 'block';
+                        paymentSection.style.display = 'block';
+                        submitText.textContent = '{{ __("Register & Pay") }}';
+                    } else {
+                        planSection.style.display = 'none';
+                        paymentSection.style.display = 'none';
+                        submitText.textContent = '{{ __("Register") }}';
                     }
                 });
             }
+
+            @if ($stripeEnabled)
+            // Stripe Elements setup
+            var stripe = Stripe('{{ $settings['STRIPE_KEY'] }}');
+            var elements = stripe.elements();
+            var cardElement = elements.create('card', {
+                style: {
+                    base: {
+                        fontSize: '16px',
+                        color: '#32325d',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        '::placeholder': {
+                            color: '#aab7c4'
+                        }
+                    },
+                    invalid: {
+                        color: '#fa755a',
+                        iconColor: '#fa755a'
+                    }
+                }
+            });
+            cardElement.mount('#card-element');
+
+            // Handle real-time validation errors
+            cardElement.on('change', function(event) {
+                var displayError = document.getElementById('card-errors');
+                if (event.error) {
+                    displayError.textContent = event.error.message;
+                } else {
+                    displayError.textContent = '';
+                }
+            });
+
+            // Handle form submission with registration and payment
+            registerForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
+                const planId = planSelect ? planSelect.value : null;
+                
+                if (!planId) {
+                    // No plan selected, submit normally (without payment)
+                    registerForm.submit();
+                    return;
+                }
+
+                // Plan selected, process with payment
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ __("Processing...") }}';
+
+                try {
+                    // Create Stripe token
+                    const {token, error} = await stripe.createToken(cardElement);
+                    
+                    if (error) {
+                        document.getElementById('card-errors').textContent = error.message;
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '{{ __("Register & Pay") }}';
+                        return;
+                    }
+
+                    // First, submit registration form via AJAX
+                    const formData = new FormData(registerForm);
+                    
+                    const registrationResponse = await fetch('{{ route("public.register.store") }}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    });
+
+                    const registrationResult = await registrationResponse.json();
+
+                    if (!registrationResult.success) {
+                        throw new Error(registrationResult.message || 'Registration failed');
+                    }
+
+                    // If registration successful, process payment
+                    const paymentData = new FormData();
+                    paymentData.append('member_id', registrationResult.member_id);
+                    paymentData.append('plan_id', planId);
+                    paymentData.append('stripeToken', token.id);
+                    paymentData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
+                    const paymentResponse = await fetch('{{ route("public.register.payment") }}', {
+                        method: 'POST',
+                        body: paymentData
+                    });
+
+                    const paymentResult = await paymentResponse.json();
+
+                    if (paymentResult.success) {
+                        window.location.href = paymentResult.redirect;
+                    } else {
+                        throw new Error(paymentResult.error || 'Payment failed');
+                    }
+
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '{{ __("Register & Pay") }}';
+                }
+            });
+            @endif
         });
     </script>
 @endpush
@@ -207,12 +325,43 @@
                                 <div id="planSection" style="display: none;">
                                     <div class="alert alert-info">
                                         <i class="fas fa-info-circle"></i> 
-                                        {{ __('Your membership will be activated after payment confirmation.') }}
+                                        {{ __('Payment is required to activate your membership.') }}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                @endif
+
+                <!-- Payment Section (Stripe) -->
+                @if($stripeEnabled)
+                <div id="paymentSection" class="col-md-12" style="display: none;">
+                    <div class="card mb-3 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-credit-card"></i> {{ __('Payment Information') }}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-warning mb-3">
+                                <i class="fas fa-lock"></i> {{ __('Your payment information is secured by Stripe') }}
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label for="card-element" class="form-label">
+                                    {{ __('Credit or Debit Card') }} <span class="text-danger">*</span>
+                                </label>
+                                <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;"></div>
+                                <div id="card-errors" class="text-danger mt-2" role="alert"></div>
+                            </div>
+
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                {{ __('Payment will be processed after successful registration') }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
                 @endif
 
                 <div class="col-md-12">
@@ -240,8 +389,8 @@
             </div>
 
             <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-block">
-                    {{ __('Register') }}
+                <button type="submit" id="submit-btn" class="btn btn-primary btn-block">
+                    <span id="submit-text">{{ __('Register') }}</span>
                 </button>
             </div>
             {{ Form::close() }}

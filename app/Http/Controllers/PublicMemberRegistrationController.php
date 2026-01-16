@@ -163,6 +163,8 @@ class PublicMemberRegistrationController extends Controller
     private function calculateExpiryDate($duration)
     {
         switch ($duration) {
+            case 'Day Pass':
+                return \Carbon\Carbon::now()->addDays(1)->format('Y-m-d');
             case 'Monthly':
                 return \Carbon\Carbon::now()->addMonths(1)->format('Y-m-d');
             case '3-Month':

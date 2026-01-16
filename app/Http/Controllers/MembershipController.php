@@ -209,7 +209,9 @@ class MembershipController extends Controller
             ->first();
 
 
-        if ($plan == 'Monthly') {
+        if ($plan == 'Day Pass') {
+            $duration = 0.033; // Approximately 1 day in months
+        } elseif ($plan == 'Monthly') {
             $duration = 1;
         } elseif ($plan == 'Yearly') {
             $duration = 12;

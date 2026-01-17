@@ -186,7 +186,7 @@
                                         </td>
                                         <td>
                                             <div class="cart-action">
-                                                {!! Form::open(['method' => 'DELETE', 'route' => ['member.document.destroy', $document->id]]) !!}
+                                                {!! Form::open(['method' => 'DELETE', 'route' => ['member.document.delete', $document->id]]) !!}
                                                 <a class="avtar avtar-xs btn-link-secondary text-secondary customModal"
                                                     data-bs-toggle="tooltip" data-bs-original-title="{{ __('Edit') }}"
                                                     href="#" data-size="md"

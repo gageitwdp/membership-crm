@@ -278,7 +278,7 @@ Route::group(
         Route::post('member/{id}/document/store', [MemberController::class, 'documentStore'])->name('member.document.store');
         Route::get('member/document/{id}/edit', [MemberController::class, 'documentEdit'])->name('member.document.edit');
         Route::post('member/document/{id}/update', [MemberController::class, 'documentUpdate'])->name('member.document.update');
-        Route::delete('member/document/{id}/destroy', [MemberController::class, 'documentDestroy'])->name('member.document.destroy');
+        Route::delete('member/document/{id}/destroy', [MemberController::class, 'documentDestroy'])->name('member.document.delete');
         Route::get('member/payment/{id}', [MemberController::class, 'showPaymentPage'])->name('member.payment');
     }
 );

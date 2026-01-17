@@ -103,7 +103,8 @@
                         method: 'POST',
                         body: formData,
                         headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json'
                         }
                     });
 
@@ -122,7 +123,10 @@
 
                     const paymentResponse = await fetch('{{ route("public.register.payment") }}', {
                         method: 'POST',
-                        body: paymentData
+                        body: paymentData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
                     });
 
                     const paymentResult = await paymentResponse.json();

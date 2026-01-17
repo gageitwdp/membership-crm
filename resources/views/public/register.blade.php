@@ -352,7 +352,6 @@
                                         {{ __('Credit or Debit Card') }} <span class="text-danger">*</span>
                                     </label>
                                     <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;"></div>
-                                    <div id="card-errors" class="text-danger mt-2" role="alert"></div>
                                 </div>
 
                                 <small class="text-muted">

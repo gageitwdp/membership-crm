@@ -59,16 +59,6 @@
             });
             cardElement.mount('#card-element');
 
-            // Handle real-time validation errors
-            cardElement.on('change', function(event) {
-                var displayError = document.getElementById('card-errors');
-                if (event.error) {
-                    displayError.textContent = event.error.message;
-                } else {
-                    displayError.textContent = '';
-                }
-            });
-
             // Handle form submission with registration and payment
             registerForm.addEventListener('submit', async function(event) {
                 event.preventDefault();
@@ -90,7 +80,7 @@
                     const {token, error} = await stripe.createToken(cardElement);
                     
                     if (error) {
-                        document.getElementById('card-errors').textContent = error.message;
+                        alert('Card Error: ' + error.message);
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '{{ __("Register & Pay") }}';
                         return;

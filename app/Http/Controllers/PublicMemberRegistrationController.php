@@ -299,11 +299,10 @@ class PublicMemberRegistrationController extends Controller
                 $payment->member_id = $member->id;
                 $payment->plan_id = $plan->id;
                 $payment->transaction_id = $transactionID;
-                $payment->payment_type = 'Stripe';
+                $payment->payment_method = 'Online Payment';
                 $payment->amount = $plan->price;
-                $payment->receipt = $charge['receipt_url'] ?? '';
-                $payment->notes = 'Public Registration Payment';
-                $payment->payment_status = 'succeeded';
+                $payment->status = 'succeeded';
+                $payment->payment_date = now()->format('Y-m-d');
                 $payment->parent_id = 2;
                 $payment->save();
 

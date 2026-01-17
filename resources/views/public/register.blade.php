@@ -327,7 +327,7 @@
                     </div>
                 @endif
 
-                <!-- Payment Section (Stripe) -->
+                <!-- Payment Section -->
                 <div id="paymentSection" class="col-md-12" style="display: none;">
                     <div class="card mb-3 border-primary">
                         <div class="card-header bg-primary text-white">
@@ -338,7 +338,7 @@
                         <div class="card-body">
                             @if($stripeEnabled)
                                 <div class="alert alert-warning mb-3">
-                                    <i class="fas fa-lock"></i> {{ __('Your payment information is secured by Stripe') }}
+                                    <i class="fas fa-lock"></i> {{ __('Your payment information is secured with online payment') }}
                                 </div>
                                 
                                 <div class="form-group mb-3">

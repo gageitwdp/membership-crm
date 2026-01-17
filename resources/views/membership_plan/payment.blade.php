@@ -314,7 +314,7 @@
                             <div class="card-header">
                                 <div class="row align-items-center g-2">
                                     <div class="col">
-                                        <h5>{{ __('Stripe Payment') }}</h5>
+                                        <h5>{{ __('Online Payment') }}</h5>
                                     </div>
                                     <div class="col-auto">
 

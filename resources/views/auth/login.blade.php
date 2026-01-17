@@ -87,7 +87,7 @@
             @if ($registerPage == 'on')
                 <hr />
                 <h5 class="d-flex justify-content-center">{{ __("Don't Have An Account?") }} <a class="ms-1 text-secondary"
-                        href="{{ route('register') }}">{{ __('Create an account') }}</a>
+                        href="{{ route('public.register') }}">{{ __('Create an account') }}</a>
                 </h5>
             @endif
             {{ Form::close() }}

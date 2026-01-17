@@ -134,6 +134,26 @@
                 }
             });
             @endif
+
+            // Phone number formatting
+            const phoneInput = document.getElementById('phone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    
+                    if (value.length > 10) {
+                        value = value.slice(0, 10);
+                    }
+                    
+                    if (value.length >= 6) {
+                        e.target.value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6);
+                    } else if (value.length >= 3) {
+                        e.target.value = value.slice(0, 3) + '-' + value.slice(3);
+                    } else {
+                        e.target.value = value;
+                    }
+                });
+            }
         });
     </script>
 @endpush
@@ -198,9 +218,9 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'required' => 'required']) }}
+                        {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'required' => 'required', 'maxlength' => '12']) }}
                         <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
-                        <small class="form-text text-muted">{{ __('Include country code, e.g., +91XXXXXXXXXX') }}</small>
+                        <small class="form-text text-muted">{{ __('Format: 732-693-1114') }}</small>
                         @error('phone')
                             <span class="invalid-feedback d-block" role="alert">
                                 <strong>{{ $message }}</strong>

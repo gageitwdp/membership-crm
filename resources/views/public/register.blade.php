@@ -297,7 +297,7 @@
                     <div class="col-md-12">
                         <div class="card mb-3">
                             <div class="card-header">
-                                <h5>{{ __('Select Membership Plan (Optional)') }}</h5>
+                                <h5>{{ __('Select Membership Plan') }}</h5>
                             </div>
                             <div class="card-body">
                                 <div class="form-floating mb-3">

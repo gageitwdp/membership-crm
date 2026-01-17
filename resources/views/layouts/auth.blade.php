@@ -55,6 +55,15 @@
         <link rel="stylesheet" id="Pstylesheet" href="{{ asset('assets/css/style-preset.css') }}" />
     @endif
     <link href="{{ asset('css/custom.css') }} " rel="stylesheet">
+    <style>
+        @media (max-width: 768px) {
+            .auth-form .logo .brand-logo {
+                max-width: 200px;
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
 </head>
 
 <body

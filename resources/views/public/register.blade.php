@@ -28,11 +28,11 @@
                     if (this.value) {
                         planSection.style.display = 'block';
                         paymentSection.style.display = 'block';
-                        submitText.textContent = '{{ __("Register & Pay") }}';
+                        submitText.textContent = '{!! __("Register & Pay") !!}';
                     } else {
                         planSection.style.display = 'none';
                         paymentSection.style.display = 'none';
-                        submitText.textContent = '{{ __("Register") }}';
+                        submitText.textContent = '{!! __("Register") !!}';
                     }
                 });
             }

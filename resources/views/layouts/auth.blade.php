@@ -57,10 +57,16 @@
     <link href="{{ asset('css/custom.css') }} " rel="stylesheet">
     <style>
         @media (max-width: 768px) {
+            .auth-form .logo {
+                text-align: center;
+                margin-bottom: 1.5rem;
+            }
             .auth-form .logo .brand-logo {
-                max-width: 200px;
-                width: 100%;
+                max-width: 80%;
+                max-height: 80px;
+                width: auto;
                 height: auto;
+                object-fit: contain;
             }
         }
     </style>

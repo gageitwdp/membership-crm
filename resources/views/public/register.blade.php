@@ -333,7 +333,7 @@
                         <div class="card-body">
                             @if($stripeEnabled)
                                 <div class="alert alert-warning mb-3">
-                                    <i class="fas fa-lock"></i> {{ __('Your payment information is secured with online payment') }}
+                                    <i class="fas fa-lock"></i> {{ __('Your payment information is secured with online payment security') }}
                                 </div>
                                 
                                 <div class="form-group mb-3">

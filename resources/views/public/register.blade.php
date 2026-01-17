@@ -6,11 +6,6 @@
 @section('tab-title')
     {{ __('Member Registration') }}
 @endsection
-<!-- Debug Info (Remove in production) -->
-<!-- Stripe Enabled: {{ $stripeEnabled ? 'Yes' : 'No' }} -->
-<!-- Stripe Payment Setting: {{ $settings['STRIPE_PAYMENT'] ?? 'not set' }} -->
-<!-- Has Stripe Key: {{ !empty($settings['STRIPE_KEY']) ? 'Yes' : 'No' }} -->
-<!-- Has Stripe Secret: {{ !empty($settings['STRIPE_SECRET']) ? 'Yes' : 'No' }} -->
 @push('script-page')
     @if ($stripeEnabled)
         <script src="https://js.stripe.com/v3/"></script>

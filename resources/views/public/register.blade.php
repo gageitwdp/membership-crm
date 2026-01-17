@@ -220,7 +220,7 @@
                     <div class="form-floating mb-3">
                         {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'required' => 'required', 'maxlength' => '12']) }}
                         <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
-                        <small class="form-text text-muted">{{ __('Format: 732-693-1114') }}</small>
+                        <small class="form-text text-muted">{{ __('No need to input the dashes. ') }}</small>
                         @error('phone')
                             <span class="invalid-feedback d-block" role="alert">
                                 <strong>{{ $message }}</strong>

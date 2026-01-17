@@ -357,17 +357,7 @@
                     </div>
                 </div>
 
-                <div class="col-md-12">
-                    <div class="form-floating mb-3">
-                        {{ Form::textarea('notes', old('notes'), ['class' => 'form-control', 'id' => 'notes', 'placeholder' => __('Additional Notes'), 'rows' => '2', 'style' => 'height: 80px']) }}
-                        <label for="notes">{{ __('Additional Notes') }}</label>
-                        @error('notes')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
+
 
                 @if (isset($settings['google_recaptcha']) && $settings['google_recaptcha'] == 'on')
                     <div class="col-md-12 mb-3">

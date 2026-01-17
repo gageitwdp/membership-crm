@@ -28,7 +28,7 @@
                             <li class="nav-item">
 
                                 <a class="nav-link text-sm stripe_payment_tab" id="profile-tab-2" data-bs-toggle="tab"
-                                    href="#stripe_payment" role="tab" aria-selected="true">{{ __('Stripe') }}</a>
+                                    href="#stripe_payment" role="tab" aria-selected="true">{{ __('Online Payment') }}</a>
                             </li>
                         @endif
 

@@ -329,12 +329,7 @@
 
                 <!-- Payment Section -->
                 <div id="paymentSection" class="col-md-12" style="display: none;">
-                    <div class="card mb-3 border-primary">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-credit-card"></i> {{ __('Payment Information') }}
-                            </h5>
-                        </div>
+
                         <div class="card-body">
                             @if($stripeEnabled)
                                 <div class="alert alert-warning mb-3">

@@ -60,6 +60,12 @@
             .auth-form .logo {
                 text-align: center;
                 margin-bottom: 1.5rem;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            .auth-form .logo a {
+                display: inline-block;
             }
             .auth-form .logo .brand-logo {
                 max-width: 80%;
@@ -67,6 +73,8 @@
                 width: auto;
                 height: auto;
                 object-fit: contain;
+                display: block;
+                margin: 0 auto;
             }
         }
     </style>

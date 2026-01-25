@@ -30,34 +30,44 @@ class PublicMemberRegistrationController extends Controller
      */
     public function store(Request $request)
     {
+        // Build validation rules conditionally based on registration type
+        $rules = [
+            'registration_type' => 'required|in:self,parent',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'phone' => 'required|string',
+            'dob' => 'required|date',
+            'address' => 'required|string',
+            'gender' => 'required|in:Male,Female',
+            'plan_id' => 'nullable|exists:membership_plans,id',
+        ];
+
+        $messages = [
+            'registration_type.required' => __('Please select whether you are registering yourself or a child.'),
+        ];
+
+        // Add conditional validation based on registration type
+        if ($request->registration_type === 'self') {
+            $rules['age_confirmation'] = 'required|accepted';
+            $messages['age_confirmation.required'] = __('You must confirm that you are 18 years or older to register yourself.');
+            $messages['age_confirmation.accepted'] = __('You must confirm that you are 18 years or older to register yourself.');
+        } elseif ($request->registration_type === 'parent') {
+            $rules['parent_first_name'] = 'required|string|max:255';
+            $rules['parent_last_name'] = 'required|string|max:255';
+            $rules['parent_email'] = 'required|email';
+            $rules['parent_phone'] = 'required|string';
+            $messages['parent_first_name.required'] = __('Parent/Guardian first name is required when registering a child.');
+            $messages['parent_last_name.required'] = __('Parent/Guardian last name is required when registering a child.');
+            $messages['parent_email.required'] = __('Parent/Guardian email is required when registering a child.');
+            $messages['parent_phone.required'] = __('Parent/Guardian phone is required when registering a child.');
+        }
+
         $validator = \Validator::make(
             $request->all(),
-            [
-                'registration_type' => 'required|in:self,parent',
-                'age_confirmation' => 'required_if:registration_type,self|accepted',
-                'parent_first_name' => 'required_if:registration_type,parent|string|max:255',
-                'parent_last_name' => 'required_if:registration_type,parent|string|max:255',
-                'parent_email' => 'required_if:registration_type,parent|email',
-                'parent_phone' => 'required_if:registration_type,parent|string',
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:6|confirmed',
-                'phone' => 'required|string',
-                'dob' => 'required|date',
-                'address' => 'required|string',
-                'gender' => 'required|in:Male,Female',
-                'plan_id' => 'nullable|exists:membership_plans,id',
-            ],
-            [
-                'registration_type.required' => __('Please select whether you are registering yourself or a child.'),
-                'age_confirmation.required_if' => __('You must confirm that you are 18 years or older to register yourself.'),
-                'age_confirmation.accepted' => __('You must confirm that you are 18 years or older to register yourself.'),
-                'parent_first_name.required_if' => __('Parent/Guardian first name is required when registering a child.'),
-                'parent_last_name.required_if' => __('Parent/Guardian last name is required when registering a child.'),
-                'parent_email.required_if' => __('Parent/Guardian email is required when registering a child.'),
-                'parent_phone.required_if' => __('Parent/Guardian phone is required when registering a child.'),
-            ]
+            $rules,
+            $messages
         );
 
         if ($validator->fails()) {

@@ -143,14 +143,15 @@
                             </div>
 
                             <!-- Stripe Card Details (shown when selected) -->
-                            @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on')
                             <div id="stripeCardDetails" style="display: none;" class="mb-4">
                                 <div class="card">
                                     <div class="card-body">
                                         <h6 class="mb-3">{{ __('Enter Card Details') }}</h6>
+                                        
+                                        @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' && !empty($invoicePaymentSettings['STRIPE_KEY']))
                                         <div class="form-group mb-3">
                                             <label>{{ __('Cardholder Name') }}</label>
-                                            <input type="text" class="form-control" id="cardholder_name" placeholder="{{ __('Name on card') }}" required>
+                                            <input type="text" class="form-control" id="cardholder_name" placeholder="{{ __('Name on card') }}">
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>{{ __('Card Information') }}</label>
@@ -173,10 +174,14 @@
                                             <i class="ti ti-lock"></i>
                                             <small>{{ __('Your payment information is secure and encrypted') }}</small>
                                         </div>
+                                        @else
+                                        <div class="alert alert-warning">
+                                            {{ __('Stripe payment is not configured. Please contact administrator.') }}
+                                        </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
-                            @endif
 
                             <input type="hidden" name="stripe_token" id="stripe_token">
 

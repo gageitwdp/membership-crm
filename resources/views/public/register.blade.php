@@ -26,6 +26,11 @@
             const ageConfirmationDiv = document.getElementById('ageConfirmationDiv');
             const parentInfoDiv = document.getElementById('parentInfoDiv');
             const ageConfirmationCheckbox = document.getElementById('age_confirmation');
+            const childrenSection = document.getElementById('childrenSection');
+            const selfMemberSection = document.getElementById('selfMemberSection');
+            const childrenContainer = document.getElementById('childrenContainer');
+            const addChildBtn = document.getElementById('addChildBtn');
+            let childCount = 0;
             
             // Handle registration type change
             registrationTypeRadios.forEach(radio => {
@@ -33,6 +38,13 @@
                     if (this.value === 'self') {
                         ageConfirmationDiv.style.display = 'block';
                         parentInfoDiv.style.display = 'none';
+                        childrenSection.style.display = 'none';
+                        selfMemberSection.style.display = 'block';
+                        
+                        // Show self-registration fields
+                        document.querySelectorAll('.self-registration-field').forEach(el => el.style.display = 'block');
+                        document.querySelectorAll('.parent-registration-field').forEach(el => el.style.display = 'none');
+                        
                         // Clear parent fields
                         document.getElementById('parent_first_name').value = '';
                         document.getElementById('parent_last_name').value = '';
@@ -43,18 +55,182 @@
                         document.getElementById('parent_last_name').removeAttribute('required');
                         document.getElementById('parent_email').removeAttribute('required');
                         document.getElementById('parent_phone').removeAttribute('required');
+                        
+                        // Make self-registration fields required
+                        document.querySelectorAll('.self-registration-field input[type="text"], .self-registration-field input[type="email"], .self-registration-field input[type="date"], .self-registration-field select, .self-registration-field textarea').forEach(el => {
+                            if (!el.id.includes('emergency_contact') && !el.id.includes('image')) {
+                                el.setAttribute('required', 'required');
+                            }
+                        });
                     } else if (this.value === 'parent') {
                         ageConfirmationDiv.style.display = 'none';
                         parentInfoDiv.style.display = 'block';
+                        childrenSection.style.display = 'block';
+                        selfMemberSection.style.display = 'none';
                         ageConfirmationCheckbox.checked = false;
+                        
+                        // Hide self-registration fields
+                        document.querySelectorAll('.self-registration-field').forEach(el => el.style.display = 'none');
+                        document.querySelectorAll('.parent-registration-field').forEach(el => el.style.display = 'block');
+                        
                         // Make parent fields required
                         document.getElementById('parent_first_name').setAttribute('required', 'required');
                         document.getElementById('parent_last_name').setAttribute('required', 'required');
                         document.getElementById('parent_email').setAttribute('required', 'required');
                         document.getElementById('parent_phone').setAttribute('required', 'required');
+                        
+                        // Remove required from self-registration fields
+                        document.querySelectorAll('.self-registration-field input, .self-registration-field select, .self-registration-field textarea').forEach(el => {
+                            el.removeAttribute('required');
+                        });
+                        
+                        // Add first child if none exist
+                        if (childCount === 0) {
+                            addChild();
+                        }
                     }
                 });
             });
+            
+            // Function to add child form
+            function addChild() {
+                childCount++;
+                const childIndex = childCount;
+                
+                const childHtml = `
+                    <div class="child-form card mb-3" id="child-${childIndex}">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">{{ __('Child') }} #${childIndex}</h6>
+                            <button type="button" class="btn btn-sm btn-danger remove-child-btn" data-child-id="${childIndex}">
+                                <i class="fas fa-trash"></i> {{ __('Remove') }}
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" name="children[${childIndex}][first_name]" class="form-control" placeholder="{{ __('First Name') }}" required>
+                                        <label>{{ __('First Name') }} <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" name="children[${childIndex}][last_name]" class="form-control" placeholder="{{ __('Last Name') }}" required>
+                                        <label>{{ __('Last Name') }} <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="email" name="children[${childIndex}][email]" class="form-control" placeholder="{{ __('Email') }}">
+                                        <label>{{ __('Email') }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" name="children[${childIndex}][phone]" class="form-control child-phone" placeholder="{{ __('Phone') }}" maxlength="12">
+                                        <label>{{ __('Phone') }}</label>
+                                        <small class="form-text text-muted">{{ __('No need to input the dashes.') }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="date" name="children[${childIndex}][dob]" class="form-control" required>
+                                        <label>{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <select name="children[${childIndex}][gender]" class="form-control" required>
+                                            <option value="">{{ __('Select Gender') }}</option>
+                                            <option value="Male">{{ __('Male') }}</option>
+                                            <option value="Female">{{ __('Female') }}</option>
+                                        </select>
+                                        <label>{{ __('Gender') }} <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-floating mb-3">
+                                        <textarea name="children[${childIndex}][address]" class="form-control" placeholder="{{ __('Address') }}" style="height: 80px"></textarea>
+                                        <label>{{ __('Address') }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-floating mb-3">
+                                        <textarea name="children[${childIndex}][emergency_contact]" class="form-control" placeholder="{{ __('Emergency Contact') }}" style="height: 80px"></textarea>
+                                        <label>{{ __('Emergency Contact Information') }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">{{ __('Profile Image') }}</label>
+                                    <input type="file" name="children[${childIndex}][image]" class="form-control" accept="image/*">
+                                </div>
+                                @if($membershipPlans && $membershipPlans->count() > 0)
+                                <div class="col-md-12">
+                                    <div class="form-floating mb-3">
+                                        <select name="children[${childIndex}][plan_id]" class="form-control">
+                                            <option value="">{{ __('No membership plan') }}</option>
+                                            @foreach($membershipPlans as $plan)
+                                                <option value="{{ $plan->id }}">{{ $plan->plan_name }} - {{ $plan->duration }} (${{ $plan->price }})</option>
+                                            @endforeach
+                                        </select>
+                                        <label>{{ __('Membership Plan') }}</label>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                childrenContainer.insertAdjacentHTML('beforeend', childHtml);
+                
+                // Add phone formatting to new child phone field
+                const newPhoneInputs = document.querySelectorAll('.child-phone');
+                newPhoneInputs.forEach(input => {
+                    if (!input.dataset.formatted) {
+                        input.dataset.formatted = 'true';
+                        input.addEventListener('input', formatPhoneNumber);
+                    }
+                });
+            }
+            
+            // Function to format phone numbers
+            function formatPhoneNumber(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value.length > 10) {
+                    value = value.slice(0, 10);
+                }
+                
+                if (value.length >= 6) {
+                    e.target.value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6);
+                } else if (value.length >= 3) {
+                    e.target.value = value.slice(0, 3) + '-' + value.slice(3);
+                } else {
+                    e.target.value = value;
+                }
+            }
+            
+            // Add child button click handler
+            if (addChildBtn) {
+                addChildBtn.addEventListener('click', addChild);
+            }
+            
+            // Remove child button handler (using event delegation)
+            if (childrenContainer) {
+                childrenContainer.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('remove-child-btn') || e.target.closest('.remove-child-btn')) {
+                        const btn = e.target.classList.contains('remove-child-btn') ? e.target : e.target.closest('.remove-child-btn');
+                        const childId = btn.dataset.childId;
+                        const childElement = document.getElementById(`child-${childId}`);
+                        if (childElement && childCount > 1) {
+                            childElement.remove();
+                        } else if (childCount === 1) {
+                            alert('{{ __('You must have at least one child for parent registration.') }}');
+                        }
+                    }
+                });
+            }
             
             if (planSelect) {
                 planSelect.addEventListener('change', function() {
@@ -372,14 +548,31 @@
                     </div>
                 </div>
 
-                <!-- Member Information -->
-                <div class="col-md-12">
+                <!-- Children Information (for parent registration) -->
+                <div id="childrenSection" class="col-md-12" style="display: none;">
+                    <div class="card mb-3">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ __('Children Information') }}</h5>
+                            <button type="button" class="btn btn-sm btn-light" id="addChildBtn">
+                                <i class="fas fa-plus"></i> {{ __('Add Another Child') }}
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="childrenContainer">
+                                <!-- Children will be added here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member Information (for self-registration only) -->
+                <div id="selfMemberSection" class="col-md-12" style="display: none;">
                     <h5 class="mb-3">{{ __('Member Information') }}</h5>
                 </div>
                 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('first_name', old('first_name'), ['class' => 'form-control', 'id' => 'first_name', 'placeholder' => __('First Name'), 'required' => 'required']) }}
+                        {{ Form::text('first_name', old('first_name'), ['class' => 'form-control self-registration-field', 'id' => 'first_name', 'placeholder' => __('First Name')]) }}
                         <label for="first_name">{{ __('First Name') }} <span class="text-danger">*</span></label>
                         @error('first_name')
                             <span class="invalid-feedback d-block" role="alert">
@@ -391,7 +584,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('last_name', old('last_name'), ['class' => 'form-control', 'id' => 'last_name', 'placeholder' => __('Last Name'), 'required' => 'required']) }}
+                        {{ Form::text('last_name', old('last_name'), ['class' => 'form-control self-registration-field', 'id' => 'last_name', 'placeholder' => __('Last Name')]) }}
                         <label for="last_name">{{ __('Last Name') }} <span class="text-danger">*</span></label>
                         @error('last_name')
                             <span class="invalid-feedback d-block" role="alert">
@@ -403,7 +596,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::email('email', old('email'), ['class' => 'form-control', 'id' => 'email', 'placeholder' => __('Email'), 'required' => 'required']) }}
+                        {{ Form::email('email', old('email'), ['class' => 'form-control self-registration-field', 'id' => 'email', 'placeholder' => __('Email')]) }}
                         <label for="email">{{ __('Email') }} <span class="text-danger">*</span></label>
                         @error('email')
                             <span class="invalid-feedback d-block" role="alert">
@@ -415,7 +608,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'required' => 'required', 'maxlength' => '12']) }}
+                        {{ Form::text('phone', old('phone'), ['class' => 'form-control self-registration-field', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12']) }}
                         <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
                         <small class="form-text text-muted">{{ __('No need to input the dashes. ') }}</small>
                         @error('phone')
@@ -428,7 +621,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::password('password', ['class' => 'form-control', 'id' => 'password', 'placeholder' => __('Password'), 'required' => 'required', 'minlength' => '6']) }}
+                        {{ Form::password('password', ['class' => 'form-control self-registration-field', 'id' => 'password', 'placeholder' => __('Password'), 'minlength' => '6']) }}
                         <label for="password">{{ __('Password') }} <span class="text-danger">*</span></label>
                         <small class="form-text text-muted">{{ __('Minimum 6 characters') }}</small>
                         @error('password')
@@ -441,7 +634,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation', 'placeholder' => __('Confirm Password'), 'required' => 'required']) }}
+                        {{ Form::password('password_confirmation', ['class' => 'form-control self-registration-field', 'id' => 'password_confirmation', 'placeholder' => __('Confirm Password')]) }}
                         <label for="password_confirmation">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
                         @error('password_confirmation')
                             <span class="invalid-feedback d-block" role="alert">
@@ -453,7 +646,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::date('dob', old('dob'), ['class' => 'form-control', 'id' => 'dob', 'required' => 'required']) }}
+                        {{ Form::date('dob', old('dob'), ['class' => 'form-control self-registration-field', 'id' => 'dob']) }}
                         <label for="dob">{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
                         @error('dob')
                             <span class="invalid-feedback d-block" role="alert">
@@ -465,7 +658,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control', 'id' => 'gender', 'required' => 'required']) }}
+                        {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control self-registration-field', 'id' => 'gender']) }}
                         <label for="gender">{{ __('Gender') }} <span class="text-danger">*</span></label>
                         @error('gender')
                             <span class="invalid-feedback d-block" role="alert">
@@ -477,7 +670,7 @@
 
                 <div class="col-md-12">
                     <div class="form-floating mb-3">
-                        {{ Form::textarea('address', old('address'), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'required' => 'required', 'rows' => '2', 'style' => 'height: 80px']) }}
+                        {{ Form::textarea('address', old('address'), ['class' => 'form-control self-registration-field', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
                         <label for="address">{{ __('Address') }} <span class="text-danger">*</span></label>
                         @error('address')
                             <span class="invalid-feedback d-block" role="alert">
@@ -489,7 +682,7 @@
 
                 <div class="col-md-12">
                     <div class="form-floating mb-3">
-                        {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                        {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control self-registration-field', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
                         <label for="emergency_contact_information">{{ __('Emergency Contact Information') }}</label>
                         @error('emergency_contact_information')
                             <span class="invalid-feedback d-block" role="alert">
@@ -501,7 +694,7 @@
 
                 <div class="col-md-12 mb-3">
                     <label for="image" class="form-label">{{ __('Profile Image') }}</label>
-                    {{ Form::file('image', ['class' => 'form-control', 'id' => 'image', 'accept' => 'image/*']) }}
+                    {{ Form::file('image', ['class' => 'form-control self-registration-field', 'id' => 'image', 'accept' => 'image/*']) }}
                     @error('image')
                         <span class="invalid-feedback d-block" role="alert">
                             <strong>{{ $message }}</strong>
@@ -509,9 +702,9 @@
                     @enderror
                 </div>
 
-                <!-- Membership Plan Selection (Optional) -->
+                <!-- Membership Plan Selection (Optional) for self-registration -->
                 @if($membershipPlans && $membershipPlans->count() > 0)
-                    <div class="col-md-12">
+                    <div class="col-md-12 self-registration-field">
                         <div class="card mb-3">
                             <div class="card-header">
                                 <h5>{{ __('Select Membership Plan') }}</h5>
@@ -522,7 +715,7 @@
                                         <option value="">{{ __('No membership plan') }}</option>
                                         @foreach($membershipPlans as $plan)
                                             <option value="{{ $plan->id }}" {{ old('plan_id') == $plan->id ? 'selected' : '' }}>
-                                                {{ $plan->plan_name }} - {{ $plan->duration }} ({{ $plan->price }})
+                                                {{ $plan->plan_name }} - {{ $plan->duration }} (${{ $plan->price }})
                                             </option>
                                         @endforeach
                                     </select>
@@ -543,6 +736,38 @@
                         </div>
                     </div>
                 @endif
+
+                <!-- Password fields for self-registration (moved here to group properly) -->
+                <div class="col-md-6 self-registration-field">
+                    <div class="form-floating mb-3">
+                        {{ Form::password('password', ['class' => 'form-control', 'id' => 'password_self', 'placeholder' => __('Password'), 'minlength' => '6']) }}
+                        <label for="password_self">{{ __('Password') }} <span class="text-danger">*</span></label>
+                        <small class="form-text text-muted">{{ __('Minimum 6 characters') }}</small>
+                    </div>
+                </div>
+
+                <div class="col-md-6 self-registration-field">
+                    <div class="form-floating mb-3">
+                        {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation_self', 'placeholder' => __('Confirm Password')]) }}
+                        <label for="password_confirmation_self">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
+                    </div>
+                </div>
+
+                <!-- Password fields for parent registration -->
+                <div class="col-md-6 parent-registration-field" style="display: none;">
+                    <div class="form-floating mb-3">
+                        {{ Form::password('password', ['class' => 'form-control', 'id' => 'password_parent', 'placeholder' => __('Password'), 'minlength' => '6']) }}
+                        <label for="password_parent">{{ __('Account Password') }} <span class="text-danger">*</span></label>
+                        <small class="form-text text-muted">{{ __('Minimum 6 characters - for parent login') }}</small>
+                    </div>
+                </div>
+
+                <div class="col-md-6 parent-registration-field" style="display: none;">
+                    <div class="form-floating mb-3">
+                        {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation_parent', 'placeholder' => __('Confirm Password')]) }}
+                        <label for="password_confirmation_parent">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
+                    </div>
+                </div>
 
                 <!-- Payment Section -->
                 <div id="paymentSection" class="col-md-12" style="display: none;">

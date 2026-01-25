@@ -33,15 +33,7 @@ class PublicMemberRegistrationController extends Controller
         // Build validation rules conditionally based on registration type
         $rules = [
             'registration_type' => 'required|in:self,parent',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6|confirmed',
-            'phone' => 'required|string',
-            'dob' => 'required|date',
-            'address' => 'required|string',
-            'gender' => 'required|in:Male,Female',
-            'plan_id' => 'nullable|exists:membership_plans,id',
         ];
 
         $messages = [
@@ -51,17 +43,36 @@ class PublicMemberRegistrationController extends Controller
         // Add conditional validation based on registration type
         if ($request->registration_type === 'self') {
             $rules['age_confirmation'] = 'required|accepted';
+            $rules['first_name'] = 'required|string|max:255';
+            $rules['last_name'] = 'required|string|max:255';
+            $rules['email'] = 'required|email|unique:users,email';
+            $rules['phone'] = 'required|string';
+            $rules['dob'] = 'required|date';
+            $rules['address'] = 'required|string';
+            $rules['gender'] = 'required|in:Male,Female';
+            $rules['plan_id'] = 'nullable|exists:membership_plans,id';
             $messages['age_confirmation.required'] = __('You must confirm that you are 18 years or older to register yourself.');
             $messages['age_confirmation.accepted'] = __('You must confirm that you are 18 years or older to register yourself.');
         } elseif ($request->registration_type === 'parent') {
             $rules['parent_first_name'] = 'required|string|max:255';
             $rules['parent_last_name'] = 'required|string|max:255';
-            $rules['parent_email'] = 'required|email';
+            $rules['parent_email'] = 'required|email|unique:users,email';
             $rules['parent_phone'] = 'required|string';
+            $rules['children'] = 'required|array|min:1';
+            $rules['children.*.first_name'] = 'required|string|max:255';
+            $rules['children.*.last_name'] = 'required|string|max:255';
+            $rules['children.*.dob'] = 'required|date';
+            $rules['children.*.gender'] = 'required|in:Male,Female';
+            $rules['children.*.plan_id'] = 'nullable|exists:membership_plans,id';
             $messages['parent_first_name.required'] = __('Parent/Guardian first name is required when registering a child.');
             $messages['parent_last_name.required'] = __('Parent/Guardian last name is required when registering a child.');
             $messages['parent_email.required'] = __('Parent/Guardian email is required when registering a child.');
             $messages['parent_phone.required'] = __('Parent/Guardian phone is required when registering a child.');
+            $messages['children.required'] = __('You must add at least one child.');
+            $messages['children.*.first_name.required'] = __('Child first name is required.');
+            $messages['children.*.last_name.required'] = __('Child last name is required.');
+            $messages['children.*.dob.required'] = __('Child date of birth is required.');
+            $messages['children.*.gender.required'] = __('Child gender is required.');
         }
 
         $validator = \Validator::make(
@@ -165,74 +176,88 @@ class PublicMemberRegistrationController extends Controller
 
             $member->save();
 
-            // If parent registration, create child record
-            if ($request->registration_type === 'parent') {
-                $child = new Member();
-                $child->member_id = $this->generateMemberNumber();
-                $child->user_id = $user->id; // Child shares parent's user account for authentication
-                $child->first_name = $request->first_name;
-                $child->last_name = $request->last_name;
-                $child->email = $request->email;
-                $child->phone = $request->phone;
-                $child->dob = $request->dob;
-                $child->address = $request->address;
-                $child->gender = $request->gender;
-                $child->emergency_contact_information = $request->emergency_contact_information;
-                $child->notes = $request->notes;
-                $child->membership_part = !empty($request->plan_id) ? 'on' : 'off';
-                $child->parent_id = 2;
-                $child->parent_member_id = $member->id; // Link to parent member
-                $child->is_parent = false;
-                $child->relationship = 'child';
+            // If parent registration, create child records
+            if ($request->registration_type === 'parent' && $request->has('children')) {
+                $children = $request->children;
+                $childrenIds = [];
+                
+                foreach ($children as $childData) {
+                    $child = new Member();
+                    $child->member_id = $this->generateMemberNumber();
+                    $child->user_id = $user->id; // Child shares parent's user account for authentication
+                    $child->first_name = $childData['first_name'];
+                    $child->last_name = $childData['last_name'];
+                    $child->email = $childData['email'] ?? null;
+                    $child->phone = $childData['phone'] ?? null;
+                    $child->dob = $childData['dob'];
+                    $child->address = $childData['address'] ?? '';
+                    $child->gender = $childData['gender'];
+                    $child->emergency_contact_information = $childData['emergency_contact'] ?? '';
+                    $child->notes = '';
+                    $child->membership_part = !empty($childData['plan_id']) ? 'on' : 'off';
+                    $child->parent_id = 2;
+                    $child->parent_member_id = $member->id; // Link to parent member
+                    $child->is_parent = false;
+                    $child->relationship = 'child';
 
-                // Handle image upload for child
-                if ($request->hasFile('image')) {
-                    $extension = $request->file('image')->getClientOriginalExtension();
-                    $name = \Str::uuid() . '.' . $extension;
-                    $request->file('image')->storeAs('upload/member/', $name);
-                    $child->image = $name;
+                    // Handle image upload for child
+                    if ($request->hasFile("children.{$childData['first_name']}.image")) {
+                        $extension = $request->file("children.{$childData['first_name']}.image")->getClientOriginalExtension();
+                        $name = \Str::uuid() . '.' . $extension;
+                        $request->file("children.{$childData['first_name']}.image")->storeAs('upload/member/', $name);
+                        $child->image = $name;
+                    }
+
+                    $child->save();
+                    $childrenIds[] = $child->id;
+                    
+                    // Create membership if plan_id is provided for this child
+                    if (!empty($childData['plan_id'])) {
+                        $plan = MembershipPlan::find($childData['plan_id']);
+                        
+                        if ($plan) {
+                            // Calculate expiry date based on plan duration
+                            $expiryDate = $this->calculateExpiryDate($plan->duration);
+                            
+                            $membership = new Membership();
+                            $membership->member_id = $child->id;
+                            $membership->plan_id = $childData['plan_id'];
+                            $membership->start_date = now()->format('Y-m-d');
+                            $membership->expiry_date = $expiryDate;
+                            $membership->status = 'Pending'; // Set to Pending until payment is confirmed
+                            $membership->parent_id = 2;
+                            $membership->save();
+                        }
+                    }
                 }
-
-                $child->save();
-
-                // Assign membership to child, not parent
-                $memberForMembership = $child;
+                
+                $memberForMembership = null; // No single member for membership in multi-child case
             } else {
                 // Self registration: membership goes to the member
                 $memberForMembership = $member;
-            }
-
-            // Create membership if plan_id is provided
-            if (!empty($request->plan_id)) {
-                $plan = MembershipPlan::find($request->plan_id);
                 
-                if ($plan) {
-                    // Calculate expiry date based on plan duration
-                    $expiryDate = $this->calculateExpiryDate($plan->duration);
+                // Create membership if plan_id is provided
+                if (!empty($request->plan_id)) {
+                    $plan = MembershipPlan::find($request->plan_id);
                     
-                    $membership = new Membership();
-                    $membership->member_id = $memberForMembership->id;
-                    $membership->plan_id = $request->plan_id;
-                    $membership->start_date = now()->format('Y-m-d');
-                    $membership->expiry_date = $expiryDate;
-                    $membership->status = 'Pending'; // Set to Pending until payment is confirmed
-                    $membership->parent_id = 2;
-                    $membership->save();
+                    if ($plan) {
+                        // Calculate expiry date based on plan duration
+                        $expiryDate = $this->calculateExpiryDate($plan->duration);
+                        
+                        $membership = new Membership();
+                        $membership->member_id = $memberForMembership->id;
+                        $membership->plan_id = $request->plan_id;
+                        $membership->start_date = now()->format('Y-m-d');
+                        $membership->expiry_date = $expiryDate;
+                        $membership->status = 'Pending'; // Set to Pending until payment is confirmed
+                        $membership->parent_id = 2;
+                        $membership->save();
+                    }
                 }
             }
 
             // Send notification email if configured
             $this->sendRegistrationNotification($member);
-
-            // Return member ID (for parent, this is the parent member who will login)
-            // If payment is required (plan selected), return member ID for payment
-            if (!empty($request->plan_id) && $request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => __('Registration successful! Processing payment...'),
-                    'member_id' => $memberForMembership->id // Use child ID for membership payment
-                ]);
-            }
 
             // No payment needed or non-AJAX request
             if ($request->expectsJson()) {

@@ -78,6 +78,7 @@
                         </div>
 
                         <h5 class="mb-3">{{ __('Select Payment Method') }}</h5>
+                        <p class="text-muted mb-3">{{ __('Click on a payment method below to continue') }}</p>
 
                         <form action="{{ route('public.register.payment') }}" method="POST" id="paymentForm">
                             @csrf
@@ -233,6 +234,7 @@
             // Show/hide payment method details
             $('input[name="payment_method"]').on('change', function() {
                 const method = $(this).val();
+                console.log('Payment method selected:', method);
                 
                 // Hide all payment details
                 $('#bankTransferDetails').slideUp();
@@ -242,11 +244,13 @@
                 if (method === 'bank_transfer') {
                     $('#bankTransferDetails').slideDown();
                 } else if (method === 'stripe') {
+                    console.log('Showing stripe card details');
                     $('#stripeCardDetails').slideDown();
                     
                     // Mount Stripe card element if not already mounted
                     @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' && !empty($invoicePaymentSettings['STRIPE_KEY']))
                     if (cardElement && !cardElement._mounted) {
+                        console.log('Mounting card element');
                         cardElement.mount('#card-element');
                         cardElement._mounted = true;
                         
@@ -262,6 +266,11 @@
                     }
                     @endif
                 }
+            });
+
+            // Make entire card clickable
+            $('.payment-method-card').on('click', function() {
+                $(this).find('input[type="radio"]').prop('checked', true).trigger('change');
             });
 
             // Style selected payment method card
@@ -329,16 +338,32 @@
         .payment-method-card {
             cursor: pointer;
             transition: all 0.3s;
+            border: 2px solid #e9ecef;
         }
         .payment-method-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: #0d6efd;
         }
         .payment-method-card input[type="radio"] {
             cursor: pointer;
+            transform: scale(1.3);
         }
         .payment-method-card label {
             cursor: pointer;
+            margin-bottom: 0;
+        }
+        .payment-method-card.border-primary {
+            background-color: #f8f9ff;
+        }
+        #card-element {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+        }
+        #card-element.StripeElement--focus {
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
         }
     </style>
 </body>

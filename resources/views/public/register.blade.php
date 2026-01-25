@@ -42,7 +42,7 @@
                         selfMemberSection.style.display = 'block';
                         
                         // Show self-registration fields
-                        document.querySelectorAll('.self-registration-field').forEach(el => el.style.display = 'block');
+                        selfMemberSection.style.display = 'block';
                         document.querySelectorAll('.parent-registration-field').forEach(el => el.style.display = 'none');
                         
                         // Clear parent fields
@@ -57,17 +57,20 @@
                         document.getElementById('parent_phone').removeAttribute('required');
                         
                         // Make self-registration fields required
-                        document.querySelectorAll('.self-registration-field input[type="text"], .self-registration-field input[type="email"], .self-registration-field input[type="date"], .self-registration-field select, .self-registration-field textarea').forEach(el => {
-                            if (!el.id.includes('emergency_contact') && !el.id.includes('image')) {
-                                el.setAttribute('required', 'required');
-                            }
-                        });
+                        const selfSection = document.getElementById('selfMemberSection');
+                        if (selfSection) {
+                            selfSection.querySelectorAll('input[type="text"], input[type="email"], input[type="date"], input[type="password"], select, textarea').forEach(el => {
+                                if (!el.id.includes('emergency_contact') && !el.id.includes('image') && el.id !== 'plan_id') {
+                                    el.setAttribute('required', 'required');
+                                }
+                            });
+                        }
                     } else if (this.value === 'parent') {
                         ageConfirmationDiv.style.display = 'none';
                         parentInfoDiv.style.display = 'block';
                         childrenSection.style.display = 'block';
                         selfMemberSection.style.display = 'none';
-                        ageConfirmationCheckbox.checked = false;
+                        selfMemberSection.style.display = 'none'
                         
                         // Hide self-registration fields
                         document.querySelectorAll('.self-registration-field').forEach(el => el.style.display = 'none');
@@ -77,9 +80,12 @@
                         document.getElementById('parent_first_name').setAttribute('required', 'required');
                         document.getElementById('parent_last_name').setAttribute('required', 'required');
                         document.getElementById('parent_email').setAttribute('required', 'required');
-                        document.getElementById('parent_phone').setAttribute('required', 'required');
-                        
-                        // Remove required from self-registration fields
+                        const selfSectionRemove = document.getElementById('selfMemberSection');
+                        if (selfSectionRemove) {
+                            selfSectionRemove.querySelectorAll('input, select, textarea').forEach(el => {
+                                el.removeAttribute('required');
+                            });
+                        }Remove required from self-registration fields
                         document.querySelectorAll('.self-registration-field input, .self-registration-field select, .self-registration-field textarea').forEach(el => {
                             el.removeAttribute('required');
                         });
@@ -568,163 +574,165 @@
                 <!-- Member Information (for self-registration only) -->
                 <div id="selfMemberSection" class="col-md-12" style="display: none;">
                     <h5 class="mb-3">{{ __('Member Information') }}</h5>
-                </div>
                 
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::text('first_name', old('first_name'), ['class' => 'form-control self-registration-field', 'id' => 'first_name', 'placeholder' => __('First Name'), 'style' => 'display: none;']) }}
-                        <label for="first_name">{{ __('First Name') }} <span class="text-danger">*</span></label>
-                        @error('first_name')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::text('last_name', old('last_name'), ['class' => 'form-control self-registration-field', 'id' => 'last_name', 'placeholder' => __('Last Name'), 'style' => 'display: none;']) }}
-                        <label for="last_name">{{ __('Last Name') }} <span class="text-danger">*</span></label>
-                        @error('last_name')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::email('email', old('email'), ['class' => 'form-control self-registration-field', 'id' => 'email', 'placeholder' => __('Email'), 'style' => 'display: none;']) }}
-                        <label for="email">{{ __('Email') }} <span class="text-danger">*</span></label>
-                        @error('email')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::text('phone', old('phone'), ['class' => 'form-control self-registration-field', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12', 'style' => 'display: none;']) }}
-                        <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
-                        <small class="form-text text-muted">{{ __('No need to input the dashes. ') }}</small>
-                        @error('phone')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::date('dob', old('dob'), ['class' => 'form-control', 'id' => 'dob']) }}
-                        <label for="dob">{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
-                        @error('dob')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control', 'id' => 'gender']) }}
-                        <label for="gender">{{ __('Gender') }} <span class="text-danger">*</span></label>
-                        @error('gender')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-12 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::textarea('address', old('address'), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
-                        <label for="address">{{ __('Address') }} <span class="text-danger">*</span></label>
-                        @error('address')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-12 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
-                        <label for="emergency_contact_information">{{ __('Emergency Contact Information') }}</label>
-                        @error('emergency_contact_information')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-12 mb-3 self-registration-field" style="display: none;">
-                    <label for="image" class="form-label">{{ __('Profile Image') }}</label>
-                    {{ Form::file('image', ['class' => 'form-control', 'id' => 'image', 'accept' => 'image/*']) }}
-                    @error('image')
-                        <span class="invalid-feedback d-block" role="alert">
-                            <strong>{{ $message }}</strong>
-                        </span>
-                    @enderror
-                </div>
-
-                <!-- Membership Plan Selection (Optional) for self-registration -->
-                @if($membershipPlans && $membershipPlans->count() > 0)
-                    <div class="col-md-12 self-registration-field" style="display: none;">
-                        <div class="card mb-3">
-                            <div class="card-header">
-                                <h5>{{ __('Select Membership Plan') }}</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::text('first_name', old('first_name'), ['class' => 'form-control', 'id' => 'first_name', 'placeholder' => __('First Name')]) }}
+                                <label for="first_name">{{ __('First Name') }} <span class="text-danger">*</span></label>
+                                @error('first_name')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
                             </div>
-                            <div class="card-body">
-                                <div class="form-floating mb-3">
-                                    <select name="plan_id" id="plan_id" class="form-control">
-                                        <option value="">{{ __('No membership plan') }}</option>
-                                        @foreach($membershipPlans as $plan)
-                                            <option value="{{ $plan->id }}" {{ old('plan_id') == $plan->id ? 'selected' : '' }}>
-                                                {{ $plan->plan_name }} - {{ $plan->duration }} (${{ $plan->price }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <label for="plan_id">{{ __('Membership Plan') }}</label>
-                                    @error('plan_id')
-                                        <span class="invalid-feedback d-block" role="alert">
-                                            <strong>{{ $message }}</strong>
-                                        </span>
-                                    @enderror
-                                </div>
-                                <div id="planSection" style="display: none;">
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i> 
-                                        {{ __('Payment is required to activate your membership.') }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::text('last_name', old('last_name'), ['class' => 'form-control', 'id' => 'last_name', 'placeholder' => __('Last Name')]) }}
+                                <label for="last_name">{{ __('Last Name') }} <span class="text-danger">*</span></label>
+                                @error('last_name')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::email('email', old('email'), ['class' => 'form-control', 'id' => 'email', 'placeholder' => __('Email')]) }}
+                                <label for="email">{{ __('Email') }} <span class="text-danger">*</span></label>
+                                @error('email')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12']) }}
+                                <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
+                                <small class="form-text text-muted">{{ __('No need to input the dashes.') }}</small>
+                                @error('phone')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::date('dob', old('dob'), ['class' => 'form-control', 'id' => 'dob']) }}
+                                <label for="dob">{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
+                                @error('dob')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control', 'id' => 'gender']) }}
+                                <label for="gender">{{ __('Gender') }} <span class="text-danger">*</span></label>
+                                @error('gender')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <div class="form-floating mb-3">
+                                {{ Form::textarea('address', old('address'), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                                <label for="address">{{ __('Address') }} <span class="text-danger">*</span></label>
+                                @error('address')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <div class="form-floating mb-3">
+                                {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                                <label for="emergency_contact_information">{{ __('Emergency Contact Information') }}</label>
+                                @error('emergency_contact_information')
+                                    <span class="invalid-feedback d-block" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label for="image" class="form-label">{{ __('Profile Image') }}</label>
+                            {{ Form::file('image', ['class' => 'form-control', 'id' => 'image', 'accept' => 'image/*']) }}
+                            @error('image')
+                                <span class="invalid-feedback d-block" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+
+                        <!-- Membership Plan Selection (Optional) for self-registration -->
+                        @if($membershipPlans && $membershipPlans->count() > 0)
+                            <div class="col-md-12">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h5>{{ __('Select Membership Plan') }}</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="form-floating mb-3">
+                                            <select name="plan_id" id="plan_id" class="form-control">
+                                                <option value="">{{ __('No membership plan') }}</option>
+                                                @foreach($membershipPlans as $plan)
+                                                    <option value="{{ $plan->id }}" {{ old('plan_id') == $plan->id ? 'selected' : '' }}>
+                                                        {{ $plan->plan_name }} - {{ $plan->duration }} (${{ $plan->price }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <label for="plan_id">{{ __('Membership Plan') }}</label>
+                                            @error('plan_id')
+                                                <span class="invalid-feedback d-block" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                        <div id="planSection" style="display: none;">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> 
+                                                {{ __('Payment is required to activate your membership.') }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        @endif
+
+                        <!-- Password fields for self-registration -->
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::password('password', ['class' => 'form-control', 'id' => 'password_self', 'placeholder' => __('Password'), 'minlength' => '6']) }}
+                                <label for="password_self">{{ __('Password') }} <span class="text-danger">*</span></label>
+                                <small class="form-text text-muted">{{ __('Minimum 6 characters') }}</small>
+                            </div>
                         </div>
-                    </div>
-                @endif
 
-                <!-- Password fields for self-registration -->
-                <div class="col-md-6 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::password('password', ['class' => 'form-control', 'id' => 'password_self', 'placeholder' => __('Password'), 'minlength' => '6']) }}
-                        <label for="password_self">{{ __('Password') }} <span class="text-danger">*</span></label>
-                        <small class="form-text text-muted">{{ __('Minimum 6 characters') }}</small>
-                    </div>
-                </div>
-
-                <div class="col-md-6 self-registration-field" style="display: none;">
-                    <div class="form-floating mb-3">
-                        {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation_self', 'placeholder' => __('Confirm Password')]) }}
-                        <label for="password_confirmation_self">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation_self', 'placeholder' => __('Confirm Password')]) }}
+                                <label for="password_confirmation_self">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -70,25 +70,22 @@
                         parentInfoDiv.style.display = 'block';
                         childrenSection.style.display = 'block';
                         selfMemberSection.style.display = 'none';
-                        selfMemberSection.style.display = 'none'
                         
                         // Hide self-registration fields
-                        document.querySelectorAll('.self-registration-field').forEach(el => el.style.display = 'none');
                         document.querySelectorAll('.parent-registration-field').forEach(el => el.style.display = 'block');
                         
                         // Make parent fields required
                         document.getElementById('parent_first_name').setAttribute('required', 'required');
                         document.getElementById('parent_last_name').setAttribute('required', 'required');
                         document.getElementById('parent_email').setAttribute('required', 'required');
+                        
+                        // Remove required from self-registration fields
                         const selfSectionRemove = document.getElementById('selfMemberSection');
                         if (selfSectionRemove) {
                             selfSectionRemove.querySelectorAll('input, select, textarea').forEach(el => {
                                 el.removeAttribute('required');
                             });
-                        }Remove required from self-registration fields
-                        document.querySelectorAll('.self-registration-field input, .self-registration-field select, .self-registration-field textarea').forEach(el => {
-                            el.removeAttribute('required');
-                        });
+                        }
                         
                         // Add first child if none exist
                         if (childCount === 0) {

@@ -169,7 +169,7 @@ class PublicMemberRegistrationController extends Controller
             if ($request->registration_type === 'parent') {
                 $child = new Member();
                 $child->member_id = $this->generateMemberNumber();
-                $child->user_id = null; // Children don't have separate user accounts
+                $child->user_id = $user->id; // Child shares parent's user account for authentication
                 $child->first_name = $request->first_name;
                 $child->last_name = $request->last_name;
                 $child->email = $request->email;

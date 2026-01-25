@@ -50,6 +50,7 @@ require __DIR__ . '/auth.php';
 Route::middleware(['XSS'])->group(function () {
     Route::get('register-member', [PublicMemberRegistrationController::class, 'create'])->name('public.register');
     Route::post('register-member', [PublicMemberRegistrationController::class, 'store'])->name('public.register.store');
+    Route::get('register-member/payment-summary', [PublicMemberRegistrationController::class, 'showPaymentSummary'])->name('public.register.payment.summary');
     Route::post('register-member/payment', [PublicMemberRegistrationController::class, 'processPayment'])->name('public.register.payment');
     Route::get('register-success', [PublicMemberRegistrationController::class, 'success'])->name('public.register.success');
 });

@@ -178,6 +178,32 @@ class PublicMemberRegistrationController extends Controller
 
             $member->save();
 
+            // If parent registration with children, check if payment is needed
+            if ($request->registration_type === 'parent' && $request->has('children')) {
+                $hasPlans = false;
+                foreach ($request->children as $childData) {
+                    if (!empty($childData['plan_id'])) {
+                        $hasPlans = true;
+                        break;
+                    }
+                }
+                
+                // If any child has a plan, redirect to payment summary
+                if ($hasPlans) {
+                    // Store registration data in session
+                    session([
+                        'registration_data' => [
+                            'user_id' => $user->id,
+                            'parent_member_id' => $member->id,
+                            'children' => $request->children,
+                            'registration_type' => 'parent'
+                        ]
+                    ]);
+                    
+                    return redirect()->route('public.register.payment.summary');
+                }
+            }
+            
             // If parent registration, create child records
             if ($request->registration_type === 'parent' && $request->has('children')) {
                 $children = $request->children;
@@ -243,17 +269,17 @@ class PublicMemberRegistrationController extends Controller
                     $plan = MembershipPlan::find($request->plan_id);
                     
                     if ($plan) {
-                        // Calculate expiry date based on plan duration
-                        $expiryDate = $this->calculateExpiryDate($plan->duration);
+                        // Store registration data and redirect to payment
+                        session([
+                            'registration_data' => [
+                                'user_id' => $user->id,
+                                'member_id' => $member->id,
+                                'plan_id' => $request->plan_id,
+                                'registration_type' => 'self'
+                            ]
+                        ]);
                         
-                        $membership = new Membership();
-                        $membership->member_id = $memberForMembership->id;
-                        $membership->plan_id = $request->plan_id;
-                        $membership->start_date = now()->format('Y-m-d');
-                        $membership->expiry_date = $expiryDate;
-                        $membership->status = 'Pending'; // Set to Pending until payment is confirmed
-                        $membership->parent_id = 2;
-                        $membership->save();
+                        return redirect()->route('public.register.payment.summary');
                     }
                 }
             }
@@ -292,6 +318,189 @@ class PublicMemberRegistrationController extends Controller
     public function success()
     {
         return view('public.register-success');
+    }
+
+    /**
+     * Show payment summary page
+     */
+    public function showPaymentSummary()
+    {
+        $registrationData = session('registration_data');
+        
+        if (!$registrationData) {
+            return redirect()->route('public.register')
+                ->with('error', __('No registration data found. Please register again.'));
+        }
+        
+        $totalAmount = 0;
+        $items = [];
+        
+        if ($registrationData['registration_type'] === 'parent') {
+            // Parent registration - calculate total for all children
+            foreach ($registrationData['children'] as $childData) {
+                if (!empty($childData['plan_id'])) {
+                    $plan = MembershipPlan::find($childData['plan_id']);
+                    if ($plan) {
+                        $items[] = [
+                            'member_name' => $childData['first_name'] . ' ' . $childData['last_name'],
+                            'plan_name' => $plan->plan_name,
+                            'duration' => $plan->duration,
+                            'billing_frequency' => $plan->billing_frequency,
+                            'amount' => $plan->price,
+                            'expiry_date' => $this->calculateExpiryDate($plan->duration)
+                        ];
+                        $totalAmount += $plan->price;
+                    }
+                }
+            }
+            
+            $member = Member::find($registrationData['parent_member_id']);
+        } else {
+            // Self registration
+            $plan = MembershipPlan::find($registrationData['plan_id']);
+            $member = Member::find($registrationData['member_id']);
+            
+            if ($plan && $member) {
+                $items[] = [
+                    'member_name' => $member->first_name . ' ' . $member->last_name,
+                    'plan_name' => $plan->plan_name,
+                    'duration' => $plan->duration,
+                    'billing_frequency' => $plan->billing_frequency,
+                    'amount' => $plan->price,
+                    'expiry_date' => $this->calculateExpiryDate($plan->duration)
+                ];
+                $totalAmount = $plan->price;
+            }
+        }
+        
+        $invoicePaymentSettings = invoicePaymentSettings(2);
+        $settings = settings();
+        
+        return view('public.payment-summary', compact('items', 'totalAmount', 'member', 'registrationData', 'invoicePaymentSettings', 'settings'));
+    }
+
+    /**
+     * Process payment and complete registration
+     */
+    public function processPayment(Request $request)
+    {
+        $registrationData = session('registration_data');
+        
+        if (!$registrationData) {
+            return redirect()->route('public.register')
+                ->with('error', __('No registration data found. Please register again.'));
+        }
+        
+        try {
+            // Create children and memberships after successful payment
+            if ($registrationData['registration_type'] === 'parent') {
+                $parentMember = Member::find($registrationData['parent_member_id']);
+                
+                foreach ($registrationData['children'] as $childData) {
+                    $child = new Member();
+                    $child->member_id = $this->generateMemberNumber();
+                    $child->user_id = null;
+                    $child->first_name = $childData['first_name'];
+                    $child->last_name = $childData['last_name'];
+                    $child->email = $childData['email'] ?? null;
+                    $child->phone = $childData['phone'] ?? null;
+                    $child->dob = $childData['dob'];
+                    $child->address = $childData['address'] ?? '';
+                    $child->gender = $childData['gender'];
+                    $child->emergency_contact_information = $childData['emergency_contact'] ?? '';
+                    $child->notes = '';
+                    $child->membership_part = !empty($childData['plan_id']) ? 'on' : 'off';
+                    $child->parent_id = 2;
+                    $child->parent_member_id = $parentMember->id;
+                    $child->is_parent = 0;
+                    $child->relationship = 'child';
+                    $child->save();
+                    
+                    // Create membership if plan selected
+                    if (!empty($childData['plan_id'])) {
+                        $plan = MembershipPlan::find($childData['plan_id']);
+                        
+                        if ($plan) {
+                            $membership = new Membership();
+                            $membership->member_id = $child->id;
+                            $membership->plan_id = $childData['plan_id'];
+                            $membership->start_date = now()->format('Y-m-d');
+                            $membership->expiry_date = $this->calculateExpiryDate($plan->duration);
+                            $membership->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Active';
+                            $membership->parent_id = 2;
+                            $membership->save();
+                            
+                            // Create payment record
+                            $payment = new MembershipPayment();
+                            $payment->payment_id = $this->generatePaymentNumber();
+                            $payment->member_id = $child->id;
+                            $payment->plan_id = $childData['plan_id'];
+                            $payment->amount = $plan->price;
+                            $payment->payment_method = $request->payment_method ?? 'bank_transfer';
+                            $payment->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Paid';
+                            $payment->payment_date = now();
+                            $payment->parent_id = 2;
+                            $payment->save();
+                        }
+                    }
+                }
+                
+                $this->sendRegistrationNotification($parentMember);
+            } else {
+                // Self registration
+                $member = Member::find($registrationData['member_id']);
+                $plan = MembershipPlan::find($registrationData['plan_id']);
+                
+                if ($member && $plan) {
+                    $membership = new Membership();
+                    $membership->member_id = $member->id;
+                    $membership->plan_id = $plan->plan_id;
+                    $membership->start_date = now()->format('Y-m-d');
+                    $membership->expiry_date = $this->calculateExpiryDate($plan->duration);
+                    $membership->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Active';
+                    $membership->parent_id = 2;
+                    $membership->save();
+                    
+                    // Create payment record
+                    $payment = new MembershipPayment();
+                    $payment->payment_id = $this->generatePaymentNumber();
+                    $payment->member_id = $member->id;
+                    $payment->plan_id = $plan->plan_id;
+                    $payment->amount = $plan->price;
+                    $payment->payment_method = $request->payment_method ?? 'bank_transfer';
+                    $payment->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Paid';
+                    $payment->payment_date = now();
+                    $payment->parent_id = 2;
+                    $payment->save();
+                    
+                    $this->sendRegistrationNotification($member);
+                }
+            }
+            
+            // Clear session data
+            session()->forget('registration_data');
+            
+            return redirect()->route('public.register.success')
+                ->with('success', __('Registration and payment completed successfully!'));
+                
+        } catch (\Exception $e) {
+            \Log::error('Payment processing error: ' . $e->getMessage());
+            
+            return redirect()->back()
+                ->with('error', __('An error occurred while processing payment. Please try again.'));
+        }
+    }
+
+    /**
+     * Generate unique payment number
+     */
+    private function generatePaymentNumber()
+    {
+        $latestPayment = MembershipPayment::where('parent_id', 2)
+            ->orderBy('payment_id', 'desc')
+            ->first();
+        
+        return $latestPayment ? $latestPayment->payment_id + 1 : 1;
     }
 
     /**

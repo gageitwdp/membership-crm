@@ -202,10 +202,8 @@ class PublicMemberRegistrationController extends Controller
                     
                     return redirect()->route('public.register.payment.summary');
                 }
-            }
-            
-            // If parent registration, create child records
-            if ($request->registration_type === 'parent' && $request->has('children')) {
+                
+                // No plans selected - create children immediately without payment
                 $children = $request->children;
                 $childrenIds = [];
                 
@@ -239,27 +237,9 @@ class PublicMemberRegistrationController extends Controller
                     $child->save();
                     $childrenIds[] = $child->id;
                     
-                    // Create membership if plan_id is provided for this child
-                    if (!empty($childData['plan_id'])) {
-                        $plan = MembershipPlan::find($childData['plan_id']);
-                        
-                        if ($plan) {
-                            // Calculate expiry date based on plan duration
-                            $expiryDate = $this->calculateExpiryDate($plan->duration);
-                            
-                            $membership = new Membership();
-                            $membership->member_id = $child->id;
-                            $membership->plan_id = $childData['plan_id'];
-                            $membership->start_date = now()->format('Y-m-d');
-                            $membership->expiry_date = $expiryDate;
-                            $membership->status = 'Pending'; // Set to Pending until payment is confirmed
-                            $membership->parent_id = 2;
-                            $membership->save();
-                        }
-                    }
+                    // Don't create memberships here - only create child records
+                    // Memberships will be created during payment processing
                 }
-                
-                $memberForMembership = null; // No single member for membership in multi-child case
             } else {
                 // Self registration: membership goes to the member
                 $memberForMembership = $member;

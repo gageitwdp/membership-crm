@@ -106,7 +106,7 @@
                                                 <label for="stripe" class="d-block mt-2">
                                                     <i class="ti ti-credit-card" style="font-size: 2rem;"></i>
                                                     <h6 class="mt-2">{{ __('Credit/Debit Card') }}</h6>
-                                                    <small class="text-muted">{{ __('Pay with Stripe') }}</small>
+                                                    <small class="text-muted">{{ __('Secure Online Payment') }}</small>
                                                 </label>
                                             </div>
                                         </div>

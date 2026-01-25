@@ -156,7 +156,8 @@ class PublicMemberRegistrationController extends Controller
                 $member->emergency_contact_information = $request->emergency_contact_information;
                 $member->notes = $request->notes;
                 $member->membership_part = !empty($request->plan_id) ? 'on' : 'off';
-                $member->is_parent = false;
+                $member->is_parent = 0;
+                $member->relationship = 'self';
 
                 // Handle image upload
                 if ($request->hasFile('image')) {
@@ -167,7 +168,8 @@ class PublicMemberRegistrationController extends Controller
                 }
             } else {
                 // Parent registration: Mark as parent account
-                $member->is_parent = true;
+                $member->is_parent = 1;
+                $member->relationship = 'parent';
                 $member->dob = null;
                 $member->address = $request->address ?? '';
                 $member->gender = null;

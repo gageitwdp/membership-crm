@@ -94,11 +94,28 @@ class PublicMemberRegistrationController extends Controller
                     ->withInput();
             }
 
+            // Determine account information based on registration type
+            if ($request->registration_type === 'parent') {
+                // Parent registration: Create account with parent's info
+                $accountName = $request->parent_first_name . ' ' . $request->parent_last_name;
+                $accountEmail = $request->parent_email;
+                $accountPhone = $request->parent_phone;
+                $accountFirstName = $request->parent_first_name;
+                $accountLastName = $request->parent_last_name;
+            } else {
+                // Self registration: Create account with member's info
+                $accountName = $request->first_name . ' ' . $request->last_name;
+                $accountEmail = $request->email;
+                $accountPhone = $request->phone;
+                $accountFirstName = $request->first_name;
+                $accountLastName = $request->last_name;
+            }
+
             // Create User account
             $user = new User();
-            $user->name = $request->first_name . ' ' . $request->last_name;
-            $user->email = $request->email;
-            $user->phone_number = $request->phone;
+            $user->name = $accountName;
+            $user->email = $accountEmail;
+            $user->phone_number = $accountPhone;
             $user->password = Hash::make($request->password);
             $user->type = $userRole->name;
             $user->profile = 'avatar.png';
@@ -108,50 +125,82 @@ class PublicMemberRegistrationController extends Controller
             $user->save();
             $user->assignRole($userRole);
 
-            // Create Member record
+            // Create Member record (parent account or self account)
             $member = new Member();
             $member->member_id = $this->generateMemberNumber();
             $member->user_id = $user->id;
-            $member->first_name = $request->first_name;
-            $member->last_name = $request->last_name;
+            $member->first_name = $accountFirstName;
+            $member->last_name = $accountLastName;
             $member->password = Hash::make($request->password);
-            $member->email = $request->email;
-            $member->phone = $request->phone;
-            $member->dob = $request->dob;
-            $member->address = $request->address;
-            $member->gender = $request->gender;
-            $member->emergency_contact_information = $request->emergency_contact_information;
-            $member->notes = $request->notes;
-            $member->membership_part = !empty($request->plan_id) ? 'on' : 'off';
+            $member->email = $accountEmail;
+            $member->phone = $accountPhone;
             $member->parent_id = 2; // Assigned to owner with ID 2
-            
-            // Store parent information if this is a parent registration
-            if ($request->registration_type === 'parent') {
-                $parentInfo = sprintf(
-                    "Parent/Guardian: %s %s\nEmail: %s\nPhone: %s",
-                    $request->parent_first_name,
-                    $request->parent_last_name,
-                    $request->parent_email,
-                    $request->parent_phone
-                );
-                
-                // Append to emergency contact or notes
-                if (!empty($member->emergency_contact_information)) {
-                    $member->emergency_contact_information .= "\n\n" . $parentInfo;
-                } else {
-                    $member->emergency_contact_information = $parentInfo;
-                }
-            }
+            $member->relationship = $request->registration_type;
 
-            // Handle image upload
-            if ($request->hasFile('image')) {
-                $extension = $request->file('image')->getClientOriginalExtension();
-                $name = \Str::uuid() . '.' . $extension;
-                $request->file('image')->storeAs('upload/member/', $name);
-                $member->image = $name;
+            if ($request->registration_type === 'self') {
+                // Self registration: store member's own information
+                $member->dob = $request->dob;
+                $member->address = $request->address;
+                $member->gender = $request->gender;
+                $member->emergency_contact_information = $request->emergency_contact_information;
+                $member->notes = $request->notes;
+                $member->membership_part = !empty($request->plan_id) ? 'on' : 'off';
+                $member->is_parent = false;
+
+                // Handle image upload
+                if ($request->hasFile('image')) {
+                    $extension = $request->file('image')->getClientOriginalExtension();
+                    $name = \Str::uuid() . '.' . $extension;
+                    $request->file('image')->storeAs('upload/member/', $name);
+                    $member->image = $name;
+                }
+            } else {
+                // Parent registration: Mark as parent account
+                $member->is_parent = true;
+                $member->dob = null;
+                $member->address = $request->address ?? '';
+                $member->gender = null;
+                $member->membership_part = 'off'; // Parents don't have their own membership
             }
 
             $member->save();
+
+            // If parent registration, create child record
+            if ($request->registration_type === 'parent') {
+                $child = new Member();
+                $child->member_id = $this->generateMemberNumber();
+                $child->user_id = null; // Children don't have separate user accounts
+                $child->first_name = $request->first_name;
+                $child->last_name = $request->last_name;
+                $child->email = $request->email;
+                $child->phone = $request->phone;
+                $child->dob = $request->dob;
+                $child->address = $request->address;
+                $child->gender = $request->gender;
+                $child->emergency_contact_information = $request->emergency_contact_information;
+                $child->notes = $request->notes;
+                $child->membership_part = !empty($request->plan_id) ? 'on' : 'off';
+                $child->parent_id = 2;
+                $child->parent_member_id = $member->id; // Link to parent member
+                $child->is_parent = false;
+                $child->relationship = 'child';
+
+                // Handle image upload for child
+                if ($request->hasFile('image')) {
+                    $extension = $request->file('image')->getClientOriginalExtension();
+                    $name = \Str::uuid() . '.' . $extension;
+                    $request->file('image')->storeAs('upload/member/', $name);
+                    $child->image = $name;
+                }
+
+                $child->save();
+
+                // Assign membership to child, not parent
+                $memberForMembership = $child;
+            } else {
+                // Self registration: membership goes to the member
+                $memberForMembership = $member;
+            }
 
             // Create membership if plan_id is provided
             if (!empty($request->plan_id)) {
@@ -162,7 +211,7 @@ class PublicMemberRegistrationController extends Controller
                     $expiryDate = $this->calculateExpiryDate($plan->duration);
                     
                     $membership = new Membership();
-                    $membership->member_id = $member->id;
+                    $membership->member_id = $memberForMembership->id;
                     $membership->plan_id = $request->plan_id;
                     $membership->start_date = now()->format('Y-m-d');
                     $membership->expiry_date = $expiryDate;
@@ -175,12 +224,13 @@ class PublicMemberRegistrationController extends Controller
             // Send notification email if configured
             $this->sendRegistrationNotification($member);
 
+            // Return member ID (for parent, this is the parent member who will login)
             // If payment is required (plan selected), return member ID for payment
             if (!empty($request->plan_id) && $request->expectsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => __('Registration successful! Processing payment...'),
-                    'member_id' => $member->id
+                    'member_id' => $memberForMembership->id // Use child ID for membership payment
                 ]);
             }
 

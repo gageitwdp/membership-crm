@@ -24,12 +24,31 @@ class Member extends Model
         'emergency_contact_information',
         'address',
         'note',
-        'parent_id'
+        'parent_id',
+        'parent_member_id',
+        'is_parent',
+        'relationship'
     ];
 
       public function membershipLates()
     {
         return $this->hasOne(Membership::class, 'member_id', 'id')->latestOfMany();
+    }
+
+    /**
+     * Get the children for a parent member
+     */
+    public function children()
+    {
+        return $this->hasMany(Member::class, 'parent_member_id', 'id');
+    }
+
+    /**
+     * Get the parent member if this is a child
+     */
+    public function parentMember()
+    {
+        return $this->belongsTo(Member::class, 'parent_member_id', 'id');
     }
 
 

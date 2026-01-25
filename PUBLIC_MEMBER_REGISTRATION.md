@@ -3,6 +3,10 @@
 ## Overview
 This feature allows users from the public internet to create their own member accounts without requiring authentication. All registered members are automatically assigned to the owner user with ID=2 (`parent_id=2`).
 
+**Registration Types:**
+- **Self Registration**: Users 18+ can register themselves. They must confirm their age before submitting.
+- **Parent Registration**: Parents can register their children (under 18). The parent account is created with the parent's information, and children are linked to the parent account. Parents can add multiple children.
+
 ## Implementation Details
 
 ### Files Created
@@ -24,6 +28,19 @@ This feature allows users from the public internet to create their own member ac
    - `resources/views/public/register-success.blade.php` - Success page
 
 ### Key Features
+
+#### Registration Type Selection
+- **Self Registration (18+)**:
+  - Requires age confirmation checkbox
+  - Creates member account with registrant's information
+  - User logs in with their own credentials
+  
+- **Parent Registration**:
+  - Parent provides their contact information
+  - Creates parent member account (with parent's name, email, phone)
+  - Creates child member record linked to parent
+  - Parent logs in with their credentials to manage all children
+  - Parents can add multiple children to their account
 
 #### Security & Validation
 - Email uniqueness validation
@@ -50,16 +67,18 @@ This feature allows users from the public internet to create their own member ac
   - Additional Notes
 
 #### Automatic Processes
-1. **User Account Creation**:
-   - Creates user with 'member' role
-   - Email is automatically verified (`email_verified_at` set)
-   - Password is hashed using Laravel's Hash facade
+1. **Self Registration**:
+   - Creates user account with member's info
+   - Email is automatically verified
+   - Password is hashed
    - Assigned to parent_id=2
 
-2. **Member Record Creation**:
-   - Auto-generates unique member_id
-   - Links to created user account
-   - Stores all profile information
+2. **Parent Registration**:
+   - Creates parent user account with parent's info (name, email, phone)
+   - Creates parent member record (marked as `is_parent=true`)
+   - Creates child member record linked to parent (`parent_member_id` set)
+   - Child's membership plan is linked to child record
+   - Parent logs in to view and manage all children
 
 3. **Optional Membership Assignment**:
    - If plan selected, creates Membership record

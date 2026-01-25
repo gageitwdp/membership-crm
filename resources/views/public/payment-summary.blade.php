@@ -201,7 +201,7 @@
         </div>
     </div>
 
-    <script src="{{ asset('assets/js/plugins/jquery.min.js') }}"></script>
+    <script src="{{ asset('js/jquery.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/bootstrap.min.js') }}"></script>
     @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on')
     <script src="https://js.stripe.com/v3/"></script>

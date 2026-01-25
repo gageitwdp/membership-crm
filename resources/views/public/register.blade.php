@@ -32,59 +32,6 @@
             const addChildBtn = document.getElementById('addChildBtn');
             let childCount = 0;
             
-            // Restore form data from session if user returned from payment page
-            @if(!empty($formData))
-                @if(isset($formData['registration_type']))
-                    // Set registration type
-                    const registrationType = '{{ $formData['registration_type'] }}';
-                    const registrationTypeRadio = document.querySelector(`input[name="registration_type"][value="${registrationType}"]`);
-                    if (registrationTypeRadio) {
-                        registrationTypeRadio.checked = true;
-                        registrationTypeRadio.dispatchEvent(new Event('change'));
-                    }
-                    
-                    // Restore children if parent registration
-                    @if(isset($formData['children']) && is_array($formData['children']))
-                        @foreach($formData['children'] as $index => $childData)
-                            setTimeout(function() {
-                                // Add a child form
-                                addChild();
-                                
-                                // Fill in the child data
-                                const childIndex = childCount;
-                                @if(isset($childData['first_name']))
-                                    document.querySelector(`input[name="children[${childIndex}][first_name]"]`).value = '{{ $childData['first_name'] }}';
-                                @endif
-                                @if(isset($childData['last_name']))
-                                    document.querySelector(`input[name="children[${childIndex}][last_name]"]`).value = '{{ $childData['last_name'] }}';
-                                @endif
-                                @if(isset($childData['email']))
-                                    document.querySelector(`input[name="children[${childIndex}][email]"]`).value = '{{ $childData['email'] }}';
-                                @endif
-                                @if(isset($childData['phone']))
-                                    document.querySelector(`input[name="children[${childIndex}][phone]"]`).value = '{{ $childData['phone'] }}';
-                                @endif
-                                @if(isset($childData['dob']))
-                                    document.querySelector(`input[name="children[${childIndex}][dob]"]`).value = '{{ $childData['dob'] }}';
-                                @endif
-                                @if(isset($childData['gender']))
-                                    document.querySelector(`select[name="children[${childIndex}][gender]"]`).value = '{{ $childData['gender'] }}';
-                                @endif
-                                @if(isset($childData['address']))
-                                    document.querySelector(`textarea[name="children[${childIndex}][address]"]`).value = '{{ $childData['address'] }}';
-                                @endif
-                                @if(isset($childData['emergency_contact']))
-                                    document.querySelector(`textarea[name="children[${childIndex}][emergency_contact]"]`).value = '{{ $childData['emergency_contact'] }}';
-                                @endif
-                                @if(isset($childData['plan_id']))
-                                    document.querySelector(`select[name="children[${childIndex}][plan_id]"]`).value = '{{ $childData['plan_id'] }}';
-                                @endif
-                            }, {{ $index * 50 }});
-                        @endforeach
-                    @endif
-                @endif
-            @endif
-            
             // Handle registration type change
             registrationTypeRadios.forEach(radio => {
                 radio.addEventListener('change', function() {
@@ -555,7 +502,7 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-floating mb-3">
-                                            {{ Form::text('parent_first_name', old('parent_first_name', $formData['parent_first_name'] ?? ''), ['class' => 'form-control', 'id' => 'parent_first_name', 'placeholder' => __('Parent First Name')]) }}
+                                            {{ Form::text('parent_first_name', old('parent_first_name'), ['class' => 'form-control', 'id' => 'parent_first_name', 'placeholder' => __('Parent First Name')]) }}
                                             <label for="parent_first_name">{{ __('Parent/Guardian First Name') }} <span class="text-danger">*</span></label>
                                             @error('parent_first_name')
                                                 <span class="invalid-feedback d-block" role="alert">
@@ -566,7 +513,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-floating mb-3">
-                                            {{ Form::text('parent_last_name', old('parent_last_name', $formData['parent_last_name'] ?? ''), ['class' => 'form-control', 'id' => 'parent_last_name', 'placeholder' => __('Parent Last Name')]) }}
+                                            {{ Form::text('parent_last_name', old('parent_last_name'), ['class' => 'form-control', 'id' => 'parent_last_name', 'placeholder' => __('Parent Last Name')]) }}
                                             <label for="parent_last_name">{{ __('Parent/Guardian Last Name') }} <span class="text-danger">*</span></label>
                                             @error('parent_last_name')
                                                 <span class="invalid-feedback d-block" role="alert">
@@ -577,7 +524,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-floating mb-3">
-                                            {{ Form::email('parent_email', old('parent_email', $formData['parent_email'] ?? ''), ['class' => 'form-control', 'id' => 'parent_email', 'placeholder' => __('Parent Email')]) }}
+                                            {{ Form::email('parent_email', old('parent_email'), ['class' => 'form-control', 'id' => 'parent_email', 'placeholder' => __('Parent Email')]) }}
                                             <label for="parent_email">{{ __('Parent/Guardian Email') }} <span class="text-danger">*</span></label>
                                             @error('parent_email')
                                                 <span class="invalid-feedback d-block" role="alert">
@@ -588,7 +535,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-floating mb-3">
-                                            {{ Form::text('parent_phone', old('parent_phone', $formData['parent_phone'] ?? ''), ['class' => 'form-control', 'id' => 'parent_phone', 'placeholder' => __('Parent Phone'), 'maxlength' => '12']) }}
+                                            {{ Form::text('parent_phone', old('parent_phone'), ['class' => 'form-control', 'id' => 'parent_phone', 'placeholder' => __('Parent Phone'), 'maxlength' => '12']) }}
                                             <label for="parent_phone">{{ __('Parent/Guardian Phone') }} <span class="text-danger">*</span></label>
                                             <small class="form-text text-muted">{{ __('No need to input the dashes.') }}</small>
                                             @error('parent_phone')
@@ -628,7 +575,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::text('first_name', old('first_name', $formData['first_name'] ?? ''), ['class' => 'form-control', 'id' => 'first_name', 'placeholder' => __('First Name')]) }}
+                                {{ Form::text('first_name', old('first_name'), ['class' => 'form-control', 'id' => 'first_name', 'placeholder' => __('First Name')]) }}
                                 <label for="first_name">{{ __('First Name') }} <span class="text-danger">*</span></label>
                                 @error('first_name')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -640,7 +587,7 @@
 
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::text('last_name', old('last_name', $formData['last_name'] ?? ''), ['class' => 'form-control', 'id' => 'last_name', 'placeholder' => __('Last Name')]) }}
+                                {{ Form::text('last_name', old('last_name'), ['class' => 'form-control', 'id' => 'last_name', 'placeholder' => __('Last Name')]) }}
                                 <label for="last_name">{{ __('Last Name') }} <span class="text-danger">*</span></label>
                                 @error('last_name')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -652,7 +599,7 @@
 
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::email('email', old('email', $formData['email'] ?? ''), ['class' => 'form-control', 'id' => 'email', 'placeholder' => __('Email')]) }}
+                                {{ Form::email('email', old('email'), ['class' => 'form-control', 'id' => 'email', 'placeholder' => __('Email')]) }}
                                 <label for="email">{{ __('Email') }} <span class="text-danger">*</span></label>
                                 @error('email')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -664,7 +611,7 @@
 
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::text('phone', old('phone', $formData['phone'] ?? ''), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12']) }}
+                                {{ Form::text('phone', old('phone'), ['class' => 'form-control', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12']) }}
                                 <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
                                 <small class="form-text text-muted">{{ __('No need to input the dashes.') }}</small>
                                 @error('phone')
@@ -677,7 +624,7 @@
 
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::date('dob', old('dob', $formData['dob'] ?? ''), ['class' => 'form-control', 'id' => 'dob']) }}
+                                {{ Form::date('dob', old('dob'), ['class' => 'form-control', 'id' => 'dob']) }}
                                 <label for="dob">{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
                                 @error('dob')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -689,7 +636,7 @@
 
                         <div class="col-md-6">
                             <div class="form-floating mb-3">
-                                {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender', $formData['gender'] ?? ''), ['class' => 'form-control', 'id' => 'gender']) }}
+                                {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control', 'id' => 'gender']) }}
                                 <label for="gender">{{ __('Gender') }} <span class="text-danger">*</span></label>
                                 @error('gender')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -701,7 +648,7 @@
 
                         <div class="col-md-12">
                             <div class="form-floating mb-3">
-                                {{ Form::textarea('address', old('address', $formData['address'] ?? ''), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                                {{ Form::textarea('address', old('address'), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
                                 <label for="address">{{ __('Address') }} <span class="text-danger">*</span></label>
                                 @error('address')
                                     <span class="invalid-feedback d-block" role="alert">
@@ -745,7 +692,7 @@
                                             <select name="plan_id" id="plan_id" class="form-control">
                                                 <option value="">{{ __('No membership plan') }}</option>
                                                 @foreach($membershipPlans as $plan)
-                                                    <option value="{{ $plan->id }}" {{ old('plan_id', $formData['plan_id'] ?? '') == $plan->id ? 'selected' : '' }}>
+                                                    <option value="{{ $plan->id }}" {{ old('plan_id') == $plan->id ? 'selected' : '' }}>
                                                         {{ $plan->plan_name }} - {{ $plan->duration }} (${{ $plan->price }})
                                                     </option>
                                                 @endforeach

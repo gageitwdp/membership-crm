@@ -454,14 +454,37 @@ class PublicMemberRegistrationController extends Controller
             // Create children and memberships after successful payment
             if ($registrationData['registration_type'] === 'parent') {
                 $parentMember = Member::find($registrationData['parent_member_id']);
+                $childrenCredentials = []; // Store credentials for email
                 
                 foreach ($registrationData['children'] as $childData) {
+                    // Create user account for child member
+                    $childEmail = $childData['email'] ?? $this->generateChildEmail($childData['first_name'], $childData['last_name']);
+                    $generatedPassword = \Str::random(10); // Generate random password
+                    
+                    $childUser = new User();
+                    $childUser->name = $childData['first_name'] . ' ' . $childData['last_name'];
+                    $childUser->email = $childEmail;
+                    $childUser->password = Hash::make($generatedPassword);
+                    $childUser->type = 'member';
+                    $childUser->lang = 'english';
+                    $childUser->parent_id = 2;
+                    $childUser->is_active = 1;
+                    $childUser->email_verified_at = now();
+                    $childUser->save();
+                    
+                    // Assign member role
+                    $memberRole = Role::where('name', 'member')->where('parent_id', 2)->first();
+                    if ($memberRole) {
+                        $childUser->assignRole($memberRole);
+                    }
+                    
+                    // Create member record
                     $child = new Member();
                     $child->member_id = $this->generateMemberNumber();
-                    $child->user_id = null;
+                    $child->user_id = $childUser->id;
                     $child->first_name = $childData['first_name'];
                     $child->last_name = $childData['last_name'];
-                    $child->email = $childData['email'] ?? null;
+                    $child->email = $childEmail;
                     $child->phone = $childData['phone'] ?? null;
                     $child->dob = $childData['dob'];
                     $child->address = $childData['address'] ?? '';
@@ -474,6 +497,13 @@ class PublicMemberRegistrationController extends Controller
                     $child->is_parent = 0;
                     $child->relationship = 'child';
                     $child->save();
+                    
+                    // Store credentials for parent notification
+                    $childrenCredentials[] = [
+                        'name' => $child->first_name . ' ' . $child->last_name,
+                        'email' => $childEmail,
+                        'password' => $generatedPassword,
+                    ];
                     
                     // Create membership if plan selected
                     if (!empty($childData['plan_id'])) {
@@ -505,7 +535,8 @@ class PublicMemberRegistrationController extends Controller
                     }
                 }
                 
-                $this->sendRegistrationNotification($parentMember);
+                // Send notification to parent with children's credentials
+                $this->sendParentNotificationWithCredentials($parentMember, $childrenCredentials);
             } else {
                 // Self registration
                 $member = Member::find($registrationData['member_id']);
@@ -599,6 +630,26 @@ class PublicMemberRegistrationController extends Controller
     }
 
     /**
+     * Generate unique email for child if not provided
+     */
+    private function generateChildEmail($firstName, $lastName)
+    {
+        $baseEmail = strtolower($firstName . '.' . $lastName);
+        $baseEmail = preg_replace('/[^a-z0-9.]/', '', $baseEmail);
+        
+        $counter = 1;
+        $email = $baseEmail . '@member.local';
+        
+        // Check if email exists and increment until we find a unique one
+        while (User::where('email', $email)->exists()) {
+            $email = $baseEmail . $counter . '@member.local';
+            $counter++;
+        }
+        
+        return $email;
+    }
+
+    /**
      * Send registration notification email
      */
     private function sendRegistrationNotification($member)
@@ -636,6 +687,52 @@ class PublicMemberRegistrationController extends Controller
             }
         } catch (\Exception $e) {
             \Log::error('Public registration notification error: ' . $e->getMessage());
+            // Don't fail registration if notification fails
+        }
+    }
+
+    /**
+     * Send parent notification with children's login credentials
+     */
+    private function sendParentNotificationWithCredentials($parentMember, $childrenCredentials)
+    {
+        try {
+            $setting = settingsById(2);
+            
+            // Build credentials message
+            $credentialsHtml = '<div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff;">';
+            $credentialsHtml .= '<h3 style="color: #007bff; margin-top: 0;">Child Member Login Credentials</h3>';
+            $credentialsHtml .= '<p style="margin-bottom: 15px;">Your children can use these credentials to check in at events:</p>';
+            
+            foreach ($childrenCredentials as $credential) {
+                $credentialsHtml .= '<div style="margin-bottom: 15px; padding: 10px; background-color: white; border-radius: 5px;">';
+                $credentialsHtml .= '<strong style="color: #333;">Name:</strong> ' . htmlspecialchars($credential['name']) . '<br>';
+                $credentialsHtml .= '<strong style="color: #333;">Email/Username:</strong> ' . htmlspecialchars($credential['email']) . '<br>';
+                $credentialsHtml .= '<strong style="color: #333;">Password:</strong> <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">' . htmlspecialchars($credential['password']) . '</code>';
+                $credentialsHtml .= '</div>';
+            }
+            
+            $credentialsHtml .= '<p style="margin-top: 15px; color: #666; font-size: 14px;"><em>Please save these credentials securely. Children will need them to check in at events.</em></p>';
+            $credentialsHtml .= '</div>';
+            
+            $message = '<p>Dear ' . htmlspecialchars($parentMember->first_name) . ',</p>';
+            $message .= '<p>Thank you for registering your children! Registration has been completed successfully.</p>';
+            $message .= $credentialsHtml;
+            $message .= '<p style="margin-top: 20px;">Login URL: <a href="' . env('APP_URL') . '/login">' . env('APP_URL') . '/login</a></p>';
+            $message .= '<p>If you have any questions, please don\'t hesitate to contact us.</p>';
+            $message .= '<p>Best regards,<br>' . ($setting['app_name'] ?? 'Membership Portal') . '</p>';
+            
+            $data = [
+                'subject' => 'Child Member Registration - Login Credentials',
+                'message' => $message,
+                'module' => 'child_registration',
+                'logo' => $setting['company_logo'] ?? 'logo.png',
+            ];
+            
+            commonEmailSend($parentMember->email, $data);
+            
+        } catch (\Exception $e) {
+            \Log::error('Parent notification error: ' . $e->getMessage());
             // Don't fail registration if notification fails
         }
     }

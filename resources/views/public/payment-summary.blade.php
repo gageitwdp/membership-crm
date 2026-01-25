@@ -160,16 +160,6 @@
                                             </div>
                                             <div id="card-errors" class="text-danger mt-2" role="alert"></div>
                                         </div>
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label>{{ __('Billing ZIP/Postal Code') }}</label>
-                                                <input type="text" class="form-control" id="billing_postal_code" placeholder="{{ __('ZIP Code') }}">
-                                            </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label>{{ __('Country') }}</label>
-                                                <input type="text" class="form-control" id="billing_country" placeholder="{{ __('Country') }}">
-                                            </div>
-                                        </div>
                                         <div class="alert alert-info">
                                             <i class="ti ti-lock"></i>
                                             <small>{{ __('Your payment information is secure and encrypted') }}</small>

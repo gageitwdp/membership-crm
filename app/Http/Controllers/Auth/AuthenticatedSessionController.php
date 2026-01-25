@@ -50,6 +50,10 @@ class AuthenticatedSessionController extends Controller
         }
         if( $loginUser->type=='owner'){
 
+            if(empty($loginUser->subscription)){
+                return redirect()->route('subscriptions.index')->with('info', __('Please select a subscription plan to continue.'));
+            }
+
             if($loginUser->subscription_expire_date!=null && date('Y-m-d') > $loginUser->subscription_expire_date){
                 assignSubscription(1);
                  return redirect()->intended(RouteServiceProvider::HOME)->with('error', __('Your subscription has ended, and access to premium features is now restricted. To continue using our services without interruption, please renew your plan or upgrade to a higher-tier package.'));

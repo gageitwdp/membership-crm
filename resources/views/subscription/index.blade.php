@@ -10,6 +10,12 @@
 @section('content')
     <div class="row">
         <div class="col-sm-12">
+            @if (\Auth::user()->type == 'owner' && empty(\Auth::user()->subscription))
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <strong>{{ __('Welcome!') }}</strong> {{ __('Please select a subscription plan below to activate your account and start using the membership management features.') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
 
             <div class="card">
                 <div class="card-header">

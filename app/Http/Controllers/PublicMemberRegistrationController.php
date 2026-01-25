@@ -22,7 +22,10 @@ class PublicMemberRegistrationController extends Controller
         // Get available membership plans for user ID 2 (owner)
         $membershipPlans = MembershipPlan::where('parent_id', 2)->get();
         
-        return view('public.register', compact('membershipPlans'));
+        // Get registration form data from session if user is returning from payment page
+        $formData = session('registration_form_data', []);
+        
+        return view('public.register', compact('membershipPlans', 'formData'));
     }
 
     /**
@@ -190,11 +193,19 @@ class PublicMemberRegistrationController extends Controller
                 
                 // If any child has a plan, redirect to payment summary
                 if ($hasPlans) {
-                    // Store registration data in session
+                    // Store registration data in session (including form data for back button)
                     session([
                         'registration_data' => [
                             'user_id' => $user->id,
                             'parent_member_id' => $member->id,
+                            'children' => $request->children,
+                            'registration_type' => 'parent'
+                        ],
+                        'registration_form_data' => [
+                            'parent_first_name' => $request->parent_first_name,
+                            'parent_last_name' => $request->parent_last_name,
+                            'parent_email' => $request->parent_email,
+                            'parent_phone' => $request->parent_phone,
                             'children' => $request->children,
                             'registration_type' => 'parent'
                         ]
@@ -256,6 +267,17 @@ class PublicMemberRegistrationController extends Controller
                                 'member_id' => $member->id,
                                 'plan_id' => $request->plan_id,
                                 'registration_type' => 'self'
+                            ],
+                            'registration_form_data' => [
+                                'registration_type' => 'self',
+                                'first_name' => $request->first_name,
+                                'last_name' => $request->last_name,
+                                'email' => $request->email,
+                                'phone' => $request->phone,
+                                'dob' => $request->dob,
+                                'gender' => $request->gender,
+                                'address' => $request->address,
+                                'plan_id' => $request->plan_id,
                             ]
                         ]);
                         
@@ -266,6 +288,10 @@ class PublicMemberRegistrationController extends Controller
 
             // Send notification email if configured
             $this->sendRegistrationNotification($member);
+
+            // Clear session data before redirecting to success
+            session()->forget('registration_data');
+            session()->forget('registration_form_data');
 
             // No payment needed or non-AJAX request
             if ($request->expectsJson()) {
@@ -514,6 +540,7 @@ class PublicMemberRegistrationController extends Controller
             
             // Clear session data
             session()->forget('registration_data');
+            session()->forget('registration_form_data');
             
             return redirect()->route('public.register.success')
                 ->with('success', __('Registration and payment completed successfully!'));

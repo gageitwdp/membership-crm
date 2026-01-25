@@ -57,19 +57,22 @@ Route::middleware(['XSS'])->group(function () {
 
 Route::get('/', [HomeController::class, 'index'])->middleware(
     [
-
+        'auth',
+        'subscription',
         'XSS',
     ]
 );
 Route::get('home', [HomeController::class, 'index'])->name('home')->middleware(
     [
-
+        'auth',
+        'subscription',
         'XSS',
     ]
 );
 Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard')->middleware(
     [
-
+        'auth',
+        'subscription',
         'XSS',
     ]
 );

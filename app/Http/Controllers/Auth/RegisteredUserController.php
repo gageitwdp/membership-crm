@@ -65,15 +65,15 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'type' => 'owner',
             'lang' => 'english',
-            'subscription' => 1,
+            'subscription' => null, // Don't assign subscription yet
             'parent_id' => 1,
         ];
         $owner_email_verification = getSettingsValByName('owner_email_verification');
         $owner = User::create($userData);
         $userRole = Role::findByName('owner');
         $owner->assignRole($userRole);
-        Auth::login($owner);
         defaultTemplate($owner->id);
+        
         if ($owner_email_verification == 'on') {
             $token = sha1($owner->email);
             $url = route('email-verification', $token);
@@ -91,7 +91,6 @@ class RegisteredUserController extends Controller
             $to = $owner->email;
             $response = sendEmailVerification($to, $data);
             if ($response['status'] == 'success') {
-                auth()->logout();
                 return redirect()->route('login')->with('error', __('We have sent an account verification email to your registered email inbox. Please check your email and follow the instructions to verify your account.'));
             } else {
                 $owner->delete();
@@ -114,7 +113,10 @@ class RegisteredUserController extends Controller
             $owner->email_verified_at = now();
             $owner->email_verification_token = null;
             $owner->save();
-            return redirect(RouteServiceProvider::HOME);
+            
+            // Log in the user and redirect to subscription selection
+            Auth::login($owner);
+            return redirect()->route('subscriptions.index')->with('success', __('Registration successful! Please select a subscription plan to continue.'));
         }
 
         // return redirect(RouteServiceProvider::HOME);

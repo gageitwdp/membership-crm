@@ -139,6 +139,161 @@
                 </div>
             </div>
         </div>
+        
+        @if(isset($children) && count($children) > 0)
+        <div class="col-sm-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ __('Child Members') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('Name') }}</th>
+                                    <th>{{ __('Member ID') }}</th>
+                                    <th>{{ __('Date of Birth') }}</th>
+                                    <th>{{ __('Gender') }}</th>
+                                    <th>{{ __('Current Plan') }}</th>
+                                    <th>{{ __('Status') }}</th>
+                                    <th>{{ __('Expiry Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($children as $child)
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0 wid-40">
+                                                    <img class="img-radius img-fluid wid-40"
+                                                        src="{{ !empty($child->image) ? asset(Storage::url('upload/member')) . '/' . $child->image : asset(Storage::url('upload/profile')) . '/avatar.png' }}"
+                                                        alt="User image">
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    {{ $child->first_name }} {{ $child->last_name }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ memberPrefix() . $child->member_id }}</td>
+                                        <td>{{ $child->dob ? dateFormat($child->dob) : '-' }}</td>
+                                        <td>{{ $child->gender }}</td>
+                                        <td>
+                                            @if($child->membershipLates && $child->membershipLates->plans)
+                                                {{ $child->membershipLates->plans->plan_name }}
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($child->membershipLates)
+                                                @if($child->membershipLates->status == 'Active')
+                                                    <span class="badge bg-success">{{ __('Active') }}</span>
+                                                @elseif($child->membershipLates->status == 'Pending')
+                                                    <span class="badge bg-warning">{{ __('Pending') }}</span>
+                                                @elseif($child->membershipLates->status == 'Expired')
+                                                    <span class="badge bg-danger">{{ __('Expired') }}</span>
+                                                @else
+                                                    <span class="badge bg-secondary">{{ $child->membershipLates->status }}</span>
+                                                @endif
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($child->membershipLates && $child->membershipLates->expiry_date)
+                                                {{ dateFormat($child->membershipLates->expiry_date) }}
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+        
+        @if(isset($children) && count($children) > 0)
+        <div class="col-sm-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>{{ __('Child Members') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{{ __('Name') }}</th>
+                                    <th>{{ __('Member ID') }}</th>
+                                    <th>{{ __('Date of Birth') }}</th>
+                                    <th>{{ __('Gender') }}</th>
+                                    <th>{{ __('Current Plan') }}</th>
+                                    <th>{{ __('Status') }}</th>
+                                    <th>{{ __('Expiry Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($children as $child)
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0 wid-40">
+                                                    <img class="img-radius img-fluid wid-40"
+                                                        src="{{ !empty($child->image) ? asset(Storage::url('upload/member')) . '/' . $child->image : asset(Storage::url('upload/profile')) . '/avatar.png' }}"
+                                                        alt="User image">
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    {{ $child->first_name }} {{ $child->last_name }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ memberPrefix() . $child->member_id }}</td>
+                                        <td>{{ $child->dob ? dateFormat($child->dob) : '-' }}</td>
+                                        <td>{{ $child->gender }}</td>
+                                        <td>
+                                            @if($child->membershipLates && $child->membershipLates->plans)
+                                                {{ $child->membershipLates->plans->plan_name }}
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($child->membershipLates)
+                                                @if($child->membershipLates->status == 'Active')
+                                                    <span class="badge bg-success">{{ __('Active') }}</span>
+                                                @elseif($child->membershipLates->status == 'Pending')
+                                                    <span class="badge bg-warning">{{ __('Pending') }}</span>
+                                                @elseif($child->membershipLates->status == 'Expired')
+                                                    <span class="badge bg-danger">{{ __('Expired') }}</span>
+                                                @else
+                                                    <span class="badge bg-secondary">{{ $child->membershipLates->status }}</span>
+                                                @endif
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($child->membershipLates && $child->membershipLates->expiry_date)
+                                                {{ dateFormat($child->membershipLates->expiry_date) }}
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+        
         <div class="col-sm-12">
             <div class="card table-card">
                 <div class="card-header">

@@ -23,7 +23,10 @@ class MemberController extends Controller
     public function index()
     {
         if (\Auth::user()->can('manage member')) {
-            $members = Member::where('parent_id', '=', parentId())->orderBy('id', 'desc')->get();
+            $members = Member::where('parent_id', '=', parentId())
+                ->with('parentMember')
+                ->orderBy('id', 'desc')
+                ->get();
         } else {
             return redirect()->back()->with('error', __('Permission Denied.'));
         }
@@ -207,7 +210,16 @@ class MemberController extends Controller
             }
 
             $documents = MemberDocument::where('member_id', $member->id)->get();
-            return view('member.show', compact('member', 'documents', 'memberships', 'membershipPayments', 'lastMembership', 'status'));
+            
+            // Get children if this is a parent member
+            $children = [];
+            if ($member && $member->is_parent == 1) {
+                $children = Member::where('parent_member_id', $member->id)
+                    ->with(['membershipLates.plans'])
+                    ->get();
+            }
+            
+            return view('member.show', compact('member', 'documents', 'memberships', 'membershipPayments', 'lastMembership', 'status', 'children'));
         } else {
             return redirect()->back()->with('error', __('Permission Denied.'));
         }

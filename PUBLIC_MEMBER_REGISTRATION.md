@@ -5,7 +5,55 @@ This feature allows users from the public internet to create their own member ac
 
 **Registration Types:**
 - **Self Registration**: Users 18+ can register themselves. They must confirm their age before submitting.
-- **Parent Registration**: Parents can register their children (under 18). The parent account is created with the parent's information, and children are linked to the parent account. Parents can add multiple children.
+- **Parent Registration**: Parents can register multiple children (under 18). The parent account is created with the parent's information, and each child is linked to the parent account with their own membership plan.
+
+## Parent-Child Member Architecture
+
+### Data Structure
+
+**Parent Members**:
+- Have a user account (can log in)
+- `is_parent = 1`
+- `relationship = 'parent'`
+- `user_id` = their own User record ID
+- Can have multiple children linked to them
+
+**Child Members**:
+- Do NOT have user accounts (cannot log in independently)
+- `user_id = NULL` (no login access)
+- `parent_member_id` = ID of their parent Member record
+- `is_parent = 0`
+- `relationship = 'child'`
+- Each child has their own membership plan
+- Managed entirely through parent's login
+
+### Parent Portal Features
+
+When a parent logs in, they can:
+- View all their children in the dashboard
+- See each child's membership plan and status
+- Manage payments for all children's memberships
+- View all children's membership history
+- Access all payment records for the family
+
+### Database Schema
+
+**members table** (updated):
+```sql
+id                  - Primary key
+user_id             - User ID for login (NULL for children, set for parents/self-registered)
+parent_id           - Always 2 (owner ID for multi-tenancy)
+parent_member_id    - ID of parent Member (0 for parent/self, parent's ID for children)
+is_parent           - Boolean (1 for parent accounts, 0 for others)
+relationship        - 'self', 'parent', or 'child'
+first_name          - Member's first name
+last_name           - Member's last name
+email               - Email address
+phone               - Phone number
+dob                 - Date of birth
+gender              - Gender
+...other fields
+```
 
 ## Implementation Details
 
@@ -75,10 +123,11 @@ This feature allows users from the public internet to create their own member ac
 
 2. **Parent Registration**:
    - Creates parent user account with parent's info (name, email, phone)
-   - Creates parent member record (marked as `is_parent=true`)
-   - Creates child member record linked to parent (`parent_member_id` set)
-   - Child's membership plan is linked to child record
+   - Creates parent member record (marked as `is_parent=true`, `relationship='parent'`)
+   - Creates child member record(s) linked to parent (`parent_member_id` set, `user_id=NULL`)
+   - Each child has their own membership plan
    - Parent logs in to view and manage all children
+   - Children cannot log in independently (no user account)
 
 3. **Optional Membership Assignment**:
    - If plan selected, creates Membership record

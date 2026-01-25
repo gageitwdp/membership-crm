@@ -26,7 +26,22 @@ class MembershipPaymentController extends Controller
             if (\Auth::user()->type == 'member') {
                 $user = Auth::user();
                 $member = Member::where('user_id', $user->id)->first();
-                $membershipPayments = MembershipPayment::where('parent_id', parentId())->where('member_id', $member->id)->orderBy('id', 'desc')->get();
+                
+                // Get member's own payments
+                $membershipPayments = MembershipPayment::where('parent_id', parentId())
+                    ->where('member_id', $member->id)
+                    ->orderBy('id', 'desc')
+                    ->get();
+                
+                // If parent, also get all children's payments
+                if ($member && $member->is_parent == 1) {
+                    $childrenIds = Member::where('parent_member_id', $member->id)->pluck('id')->toArray();
+                    $childPayments = MembershipPayment::where('parent_id', parentId())
+                        ->whereIn('member_id', $childrenIds)
+                        ->orderBy('id', 'desc')
+                        ->get();
+                    $membershipPayments = $membershipPayments->merge($childPayments);
+                }
             } else {
                 $membershipPayments = MembershipPayment::where('parent_id', parentId())->orderBy('id', 'desc')->get();
             }

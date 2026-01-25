@@ -184,7 +184,7 @@ class PublicMemberRegistrationController extends Controller
                 foreach ($children as $childData) {
                     $child = new Member();
                     $child->member_id = $this->generateMemberNumber();
-                    $child->user_id = $user->id; // Child shares parent's user account for authentication
+                    $child->user_id = null; // Children do NOT have their own user account - cannot log in
                     $child->first_name = $childData['first_name'];
                     $child->last_name = $childData['last_name'];
                     $child->email = $childData['email'] ?? null;

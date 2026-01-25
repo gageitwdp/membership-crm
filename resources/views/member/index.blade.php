@@ -77,9 +77,15 @@
                                                 <div class="flex-grow-1 ms-3">
                                                     <h5 class="mb-1">
                                                         {{ $member->first_name }} {{ $member->last_name }}
-
+                                                        @if($member->is_parent == 1)
+                                                            <span class="badge bg-primary">{{ __('Parent') }}</span>
+                                                        @elseif($member->parent_member_id > 0)
+                                                            <span class="badge bg-info">{{ __('Child') }}</span>
+                                                        @endif
                                                     </h5>
-
+                                                    @if($member->parent_member_id > 0 && $member->parentMember)
+                                                        <small class="text-muted">{{ __('Parent') }}: {{ $member->parentMember->first_name }} {{ $member->parentMember->last_name }}</small>
+                                                    @endif
                                                 </div>
                                             </div>
 

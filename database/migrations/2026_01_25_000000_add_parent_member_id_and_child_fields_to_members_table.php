@@ -17,6 +17,9 @@ return new class extends Migration
             $table->integer('parent_member_id')->default(0)->after('parent_id')->comment('ID of parent member if this is a child');
             $table->boolean('is_parent')->default(false)->after('parent_member_id')->comment('Whether this member is a parent account');
             $table->string('relationship')->nullable()->after('is_parent')->comment('Relationship type: self, parent, child');
+            
+            // Modify user_id to allow NULL for children who cannot log in
+            $table->integer('user_id')->nullable()->default(null)->change();
         });
     }
 
@@ -29,6 +32,9 @@ return new class extends Migration
     {
         Schema::table('members', function (Blueprint $table) {
             $table->dropColumn(['parent_member_id', 'is_parent', 'relationship']);
+            
+            // Revert user_id to not nullable
+            $table->integer('user_id')->default(0)->change();
         });
     }
 };

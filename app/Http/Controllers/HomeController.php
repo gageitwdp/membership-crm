@@ -47,15 +47,36 @@ class HomeController extends Controller
 
                     $member = Member::where('user_id', $user->id)->first();
                     $result['Membership'] = Membership::where('parent_id', parentId())->where('member_id', $member->id)->first();
-                    $membershipPayments = MembershipPayment::where('parent_id', parentId())->where('member_id', $member->id)->orderBy('id', 'desc')->get();
+                    
+                    // Get member's own payments
+                    $membershipPayments = MembershipPayment::where('parent_id', parentId())
+                        ->where('member_id', $member->id)
+                        ->orderBy('id', 'desc')
+                        ->get();
+                    
+                    // If parent, also get all children's payments
+                    if ($member && $member->is_parent == 1) {
+                        $childrenIds = Member::where('parent_member_id', $member->id)->pluck('id')->toArray();
+                        $childPayments = MembershipPayment::where('parent_id', parentId())
+                            ->whereIn('member_id', $childrenIds)
+                            ->orderBy('id', 'desc')
+                            ->get();
+                        $membershipPayments = $membershipPayments->merge($childPayments);
+                    }
+                    
                     $plan = !empty($result['Membership']) ? $result['Membership']->plan_id : '';
                     $result['MembershipPlan'] = MembershipPlan::where('parent_id', parentId())->where('plan_id', $plan)->first();
 
                     $result['totalActivityTrack'] = ActivityTracking::where('parent_id', parentId())->where('member_id', $user->id)->count();
                     $result['totalMemberbershipPlan'] = MembershipPlan::where('parent_id', parentId())->count();
 
-
-
+                    // Get children if this is a parent member
+                    $children = [];
+                    if ($member && $member->is_parent == 1) {
+                        $children = Member::where('parent_member_id', $member->id)
+                            ->with(['membershipLates.plans'])
+                            ->get();
+                    }
 
                     $memberShipPlans = MembershipPlan::where('parent_id', parentId())->get();
                     $invoicePaymentSettings = invoicePaymentSettings(parentId());
@@ -63,8 +84,7 @@ class HomeController extends Controller
                     $activeMembership = null;
 
                     if (\Auth::user()->type == 'member') {
-                        $member = Auth::user();
-                        $getMember = Member::where('user_id', $member->id)->first();
+                        $getMember = Member::where('user_id', $user->id)->first();
 
                         if ($getMember) {
                             $activeMembership = Membership::where('member_id', $getMember->id)
@@ -78,7 +98,7 @@ class HomeController extends Controller
                         }
                     }
 
-                    return view('dashboard.member', compact('result', 'user', 'membershipPayments', 'memberShipPlans', 'activeMembership', 'invoicePaymentSettings'));
+                    return view('dashboard.member', compact('result', 'user', 'membershipPayments', 'memberShipPlans', 'activeMembership', 'invoicePaymentSettings', 'children', 'member'));
                 }
 
                 $result['totalMember'] = Member::where('parent_id', parentId())->count();

@@ -26,7 +26,22 @@ class MembershipController extends Controller
             if (\Auth::user()->type == 'member') {
                 $user = Auth::user();
                 $member = Member::where('user_id', $user->id)->first();
-                $memberships = Membership::where('parent_id', parentId())->where('member_id', $member->id)->orderBy('id', 'desc')->get();
+                
+                // Get member's own memberships
+                $memberships = Membership::where('parent_id', parentId())
+                    ->where('member_id', $member->id)
+                    ->orderBy('id', 'desc')
+                    ->get();
+                
+                // If this is a parent, also get all children's memberships
+                if ($member && $member->is_parent == 1) {
+                    $childrenIds = Member::where('parent_member_id', $member->id)->pluck('id')->toArray();
+                    $childMemberships = Membership::where('parent_id', parentId())
+                        ->whereIn('member_id', $childrenIds)
+                        ->orderBy('id', 'desc')
+                        ->get();
+                    $memberships = $memberships->merge($childMemberships);
+                }
             } else {
                 $memberships = Membership::where('parent_id', parentId())->orderBy('id', 'desc')->get();
             }

@@ -572,7 +572,7 @@
                 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('first_name', old('first_name'), ['class' => 'form-control self-registration-field', 'id' => 'first_name', 'placeholder' => __('First Name')]) }}
+                        {{ Form::text('first_name', old('first_name'), ['class' => 'form-control self-registration-field', 'id' => 'first_name', 'placeholder' => __('First Name'), 'style' => 'display: none;']) }}
                         <label for="first_name">{{ __('First Name') }} <span class="text-danger">*</span></label>
                         @error('first_name')
                             <span class="invalid-feedback d-block" role="alert">
@@ -584,7 +584,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('last_name', old('last_name'), ['class' => 'form-control self-registration-field', 'id' => 'last_name', 'placeholder' => __('Last Name')]) }}
+                        {{ Form::text('last_name', old('last_name'), ['class' => 'form-control self-registration-field', 'id' => 'last_name', 'placeholder' => __('Last Name'), 'style' => 'display: none;']) }}
                         <label for="last_name">{{ __('Last Name') }} <span class="text-danger">*</span></label>
                         @error('last_name')
                             <span class="invalid-feedback d-block" role="alert">
@@ -596,7 +596,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::email('email', old('email'), ['class' => 'form-control self-registration-field', 'id' => 'email', 'placeholder' => __('Email')]) }}
+                        {{ Form::email('email', old('email'), ['class' => 'form-control self-registration-field', 'id' => 'email', 'placeholder' => __('Email'), 'style' => 'display: none;']) }}
                         <label for="email">{{ __('Email') }} <span class="text-danger">*</span></label>
                         @error('email')
                             <span class="invalid-feedback d-block" role="alert">
@@ -608,7 +608,7 @@
 
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
-                        {{ Form::text('phone', old('phone'), ['class' => 'form-control self-registration-field', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12']) }}
+                        {{ Form::text('phone', old('phone'), ['class' => 'form-control self-registration-field', 'id' => 'phone', 'placeholder' => __('Phone Number'), 'maxlength' => '12', 'style' => 'display: none;']) }}
                         <label for="phone">{{ __('Phone Number') }} <span class="text-danger">*</span></label>
                         <small class="form-text text-muted">{{ __('No need to input the dashes. ') }}</small>
                         @error('phone')
@@ -619,34 +619,9 @@
                     </div>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-6 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
-                        {{ Form::password('password', ['class' => 'form-control self-registration-field', 'id' => 'password', 'placeholder' => __('Password'), 'minlength' => '6']) }}
-                        <label for="password">{{ __('Password') }} <span class="text-danger">*</span></label>
-                        <small class="form-text text-muted">{{ __('Minimum 6 characters') }}</small>
-                        @error('password')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::password('password_confirmation', ['class' => 'form-control self-registration-field', 'id' => 'password_confirmation', 'placeholder' => __('Confirm Password')]) }}
-                        <label for="password_confirmation">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
-                        @error('password_confirmation')
-                            <span class="invalid-feedback d-block" role="alert">
-                                <strong>{{ $message }}</strong>
-                            </span>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="form-floating mb-3">
-                        {{ Form::date('dob', old('dob'), ['class' => 'form-control self-registration-field', 'id' => 'dob']) }}
+                        {{ Form::date('dob', old('dob'), ['class' => 'form-control', 'id' => 'dob']) }}
                         <label for="dob">{{ __('Date of Birth') }} <span class="text-danger">*</span></label>
                         @error('dob')
                             <span class="invalid-feedback d-block" role="alert">
@@ -656,9 +631,9 @@
                     </div>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-6 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
-                        {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control self-registration-field', 'id' => 'gender']) }}
+                        {{ Form::select('gender', ['Male' => 'Male', 'Female' => 'Female'], old('gender'), ['class' => 'form-control', 'id' => 'gender']) }}
                         <label for="gender">{{ __('Gender') }} <span class="text-danger">*</span></label>
                         @error('gender')
                             <span class="invalid-feedback d-block" role="alert">
@@ -668,9 +643,9 @@
                     </div>
                 </div>
 
-                <div class="col-md-12">
+                <div class="col-md-12 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
-                        {{ Form::textarea('address', old('address'), ['class' => 'form-control self-registration-field', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                        {{ Form::textarea('address', old('address'), ['class' => 'form-control', 'id' => 'address', 'placeholder' => __('Address'), 'rows' => '2', 'style' => 'height: 80px']) }}
                         <label for="address">{{ __('Address') }} <span class="text-danger">*</span></label>
                         @error('address')
                             <span class="invalid-feedback d-block" role="alert">
@@ -680,9 +655,9 @@
                     </div>
                 </div>
 
-                <div class="col-md-12">
+                <div class="col-md-12 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
-                        {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control self-registration-field', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
+                        {{ Form::textarea('emergency_contact_information', old('emergency_contact_information'), ['class' => 'form-control', 'id' => 'emergency_contact_information', 'placeholder' => __('Emergency Contact Information'), 'rows' => '2', 'style' => 'height: 80px']) }}
                         <label for="emergency_contact_information">{{ __('Emergency Contact Information') }}</label>
                         @error('emergency_contact_information')
                             <span class="invalid-feedback d-block" role="alert">
@@ -692,9 +667,9 @@
                     </div>
                 </div>
 
-                <div class="col-md-12 mb-3">
+                <div class="col-md-12 mb-3 self-registration-field" style="display: none;">
                     <label for="image" class="form-label">{{ __('Profile Image') }}</label>
-                    {{ Form::file('image', ['class' => 'form-control self-registration-field', 'id' => 'image', 'accept' => 'image/*']) }}
+                    {{ Form::file('image', ['class' => 'form-control', 'id' => 'image', 'accept' => 'image/*']) }}
                     @error('image')
                         <span class="invalid-feedback d-block" role="alert">
                             <strong>{{ $message }}</strong>
@@ -704,7 +679,7 @@
 
                 <!-- Membership Plan Selection (Optional) for self-registration -->
                 @if($membershipPlans && $membershipPlans->count() > 0)
-                    <div class="col-md-12 self-registration-field">
+                    <div class="col-md-12 self-registration-field" style="display: none;">
                         <div class="card mb-3">
                             <div class="card-header">
                                 <h5>{{ __('Select Membership Plan') }}</h5>
@@ -737,8 +712,8 @@
                     </div>
                 @endif
 
-                <!-- Password fields for self-registration (moved here to group properly) -->
-                <div class="col-md-6 self-registration-field">
+                <!-- Password fields for self-registration -->
+                <div class="col-md-6 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
                         {{ Form::password('password', ['class' => 'form-control', 'id' => 'password_self', 'placeholder' => __('Password'), 'minlength' => '6']) }}
                         <label for="password_self">{{ __('Password') }} <span class="text-danger">*</span></label>
@@ -746,7 +721,7 @@
                     </div>
                 </div>
 
-                <div class="col-md-6 self-registration-field">
+                <div class="col-md-6 self-registration-field" style="display: none;">
                     <div class="form-floating mb-3">
                         {{ Form::password('password_confirmation', ['class' => 'form-control', 'id' => 'password_confirmation_self', 'placeholder' => __('Confirm Password')]) }}
                         <label for="password_confirmation_self">{{ __('Confirm Password') }} <span class="text-danger">*</span></label>
@@ -771,7 +746,10 @@
 
                 <!-- Payment Section -->
                 <div id="paymentSection" class="col-md-12" style="display: none;">
-
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5>{{ __('Payment Information') }}</h5>
+                        </div>
                         <div class="card-body">
                             @if($stripeEnabled)
                                 <div class="alert alert-warning mb-3">

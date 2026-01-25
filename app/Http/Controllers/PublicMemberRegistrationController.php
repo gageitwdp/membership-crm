@@ -198,6 +198,7 @@ class PublicMemberRegistrationController extends Controller
                         'registration_data' => [
                             'user_id' => $user->id,
                             'parent_member_id' => $member->id,
+                            'parent_password' => $request->password,
                             'children' => $request->children,
                             'registration_type' => 'parent'
                         ],
@@ -455,16 +456,16 @@ class PublicMemberRegistrationController extends Controller
             if ($registrationData['registration_type'] === 'parent') {
                 $parentMember = Member::find($registrationData['parent_member_id']);
                 $childrenCredentials = []; // Store credentials for email
+                $parentPassword = $registrationData['parent_password']; // Use parent's password for all children
                 
                 foreach ($registrationData['children'] as $childData) {
                     // Create user account for child member
-                    $childEmail = $childData['email'] ?? $this->generateChildEmail($childData['first_name'], $childData['last_name']);
-                    $generatedPassword = \Str::random(10); // Generate random password
+                    $childEmail = $childData['email']; // Use email from registration form
                     
                     $childUser = new User();
                     $childUser->name = $childData['first_name'] . ' ' . $childData['last_name'];
                     $childUser->email = $childEmail;
-                    $childUser->password = Hash::make($generatedPassword);
+                    $childUser->password = Hash::make($parentPassword); // Use parent's password
                     $childUser->type = 'member';
                     $childUser->lang = 'english';
                     $childUser->parent_id = 2;
@@ -502,7 +503,6 @@ class PublicMemberRegistrationController extends Controller
                     $childrenCredentials[] = [
                         'name' => $child->first_name . ' ' . $child->last_name,
                         'email' => $childEmail,
-                        'password' => $generatedPassword,
                     ];
                     
                     // Create membership if plan selected
@@ -703,12 +703,12 @@ class PublicMemberRegistrationController extends Controller
             $credentialsHtml = '<div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007bff;">';
             $credentialsHtml .= '<h3 style="color: #007bff; margin-top: 0;">Child Member Login Credentials</h3>';
             $credentialsHtml .= '<p style="margin-bottom: 15px;">Your children can use these credentials to check in at events:</p>';
+            $credentialsHtml .= '<p style="margin-bottom: 10px;"><strong>All children use the same password as your parent account.</strong></p>';
             
             foreach ($childrenCredentials as $credential) {
                 $credentialsHtml .= '<div style="margin-bottom: 15px; padding: 10px; background-color: white; border-radius: 5px;">';
                 $credentialsHtml .= '<strong style="color: #333;">Name:</strong> ' . htmlspecialchars($credential['name']) . '<br>';
-                $credentialsHtml .= '<strong style="color: #333;">Email/Username:</strong> ' . htmlspecialchars($credential['email']) . '<br>';
-                $credentialsHtml .= '<strong style="color: #333;">Password:</strong> <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px;">' . htmlspecialchars($credential['password']) . '</code>';
+                $credentialsHtml .= '<strong style="color: #333;">Email/Username:</strong> ' . htmlspecialchars($credential['email']);
                 $credentialsHtml .= '</div>';
             }
             

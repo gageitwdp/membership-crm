@@ -70,6 +70,23 @@
                 });
             }
 
+            // Global form validation for registration type and age confirmation
+            function validateRegistrationType() {
+                const selectedType = document.querySelector('input[name="registration_type"]:checked');
+                
+                if (!selectedType) {
+                    alert('{{ __('Please select whether you are registering yourself or a child.') }}');
+                    return false;
+                }
+                
+                if (selectedType.value === 'self' && !ageConfirmationCheckbox.checked) {
+                    alert('{{ __('You must confirm that you are 18 years or older to register.') }}');
+                    return false;
+                }
+                
+                return true;
+            }
+
             @if ($stripeEnabled)
             // Stripe Elements setup
             var stripe = Stripe('{{ $settings['STRIPE_KEY'] }}');
@@ -92,29 +109,12 @@
             });
             cardElement.mount('#card-element');
 
-            // Form validation before payment processing
-            const originalSubmitHandler = async function(event) {
-                const selectedType = document.querySelector('input[name="registration_type"]:checked');
-                
-                if (!selectedType) {
-                    event.preventDefault();
-                    alert('{{ __('Please select whether you are registering yourself or a child.') }}');
-                    return false;
-                }
-                
-                if (selectedType.value === 'self' && !ageConfirmationCheckbox.checked) {
-                    event.preventDefault();
-                    alert('{{ __('You must confirm that you are 18 years or older to register.') }}');
-                    return false;
-                }
-            };
-            
             // Handle form submission with registration and payment
             registerForm.addEventListener('submit', async function(event) {
                 // First validate registration type and age confirmation
-                const validationResult = originalSubmitHandler(event);
-                if (validationResult === false) {
-                    return;
+                if (!validateRegistrationType()) {
+                    event.preventDefault();
+                    return false;
                 }
                 
                 event.preventDefault();
@@ -187,6 +187,14 @@
                     alert('Error: ' + error.message);
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '{{ __("Register & Pay") }}';
+                }
+            });
+            @else
+            // No Stripe - add simple validation for non-payment forms
+            registerForm.addEventListener('submit', function(event) {
+                if (!validateRegistrationType()) {
+                    event.preventDefault();
+                    return false;
                 }
             });
             @endif

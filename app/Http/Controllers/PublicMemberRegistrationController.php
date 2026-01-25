@@ -33,6 +33,12 @@ class PublicMemberRegistrationController extends Controller
         $validator = \Validator::make(
             $request->all(),
             [
+                'registration_type' => 'required|in:self,parent',
+                'age_confirmation' => 'required_if:registration_type,self|accepted',
+                'parent_first_name' => 'required_if:registration_type,parent|string|max:255',
+                'parent_last_name' => 'required_if:registration_type,parent|string|max:255',
+                'parent_email' => 'required_if:registration_type,parent|email',
+                'parent_phone' => 'required_if:registration_type,parent|string',
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
@@ -42,6 +48,15 @@ class PublicMemberRegistrationController extends Controller
                 'address' => 'required|string',
                 'gender' => 'required|in:Male,Female',
                 'plan_id' => 'nullable|exists:membership_plans,id',
+            ],
+            [
+                'registration_type.required' => __('Please select whether you are registering yourself or a child.'),
+                'age_confirmation.required_if' => __('You must confirm that you are 18 years or older to register yourself.'),
+                'age_confirmation.accepted' => __('You must confirm that you are 18 years or older to register yourself.'),
+                'parent_first_name.required_if' => __('Parent/Guardian first name is required when registering a child.'),
+                'parent_last_name.required_if' => __('Parent/Guardian last name is required when registering a child.'),
+                'parent_email.required_if' => __('Parent/Guardian email is required when registering a child.'),
+                'parent_phone.required_if' => __('Parent/Guardian phone is required when registering a child.'),
             ]
         );
 
@@ -99,6 +114,24 @@ class PublicMemberRegistrationController extends Controller
             $member->notes = $request->notes;
             $member->membership_part = !empty($request->plan_id) ? 'on' : 'off';
             $member->parent_id = 2; // Assigned to owner with ID 2
+            
+            // Store parent information if this is a parent registration
+            if ($request->registration_type === 'parent') {
+                $parentInfo = sprintf(
+                    "Parent/Guardian: %s %s\nEmail: %s\nPhone: %s",
+                    $request->parent_first_name,
+                    $request->parent_last_name,
+                    $request->parent_email,
+                    $request->parent_phone
+                );
+                
+                // Append to emergency contact or notes
+                if (!empty($member->emergency_contact_information)) {
+                    $member->emergency_contact_information .= "\n\n" . $parentInfo;
+                } else {
+                    $member->emergency_contact_information = $parentInfo;
+                }
+            }
 
             // Handle image upload
             if ($request->hasFile('image')) {

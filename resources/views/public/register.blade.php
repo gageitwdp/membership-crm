@@ -22,6 +22,39 @@
             const registerForm = document.getElementById('register-form');
             const submitBtn = document.getElementById('submit-btn');
             const submitText = document.getElementById('submit-text');
+            const registrationTypeRadios = document.querySelectorAll('input[name="registration_type"]');
+            const ageConfirmationDiv = document.getElementById('ageConfirmationDiv');
+            const parentInfoDiv = document.getElementById('parentInfoDiv');
+            const ageConfirmationCheckbox = document.getElementById('age_confirmation');
+            
+            // Handle registration type change
+            registrationTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'self') {
+                        ageConfirmationDiv.style.display = 'block';
+                        parentInfoDiv.style.display = 'none';
+                        // Clear parent fields
+                        document.getElementById('parent_first_name').value = '';
+                        document.getElementById('parent_last_name').value = '';
+                        document.getElementById('parent_email').value = '';
+                        document.getElementById('parent_phone').value = '';
+                        // Make parent fields not required
+                        document.getElementById('parent_first_name').removeAttribute('required');
+                        document.getElementById('parent_last_name').removeAttribute('required');
+                        document.getElementById('parent_email').removeAttribute('required');
+                        document.getElementById('parent_phone').removeAttribute('required');
+                    } else if (this.value === 'parent') {
+                        ageConfirmationDiv.style.display = 'none';
+                        parentInfoDiv.style.display = 'block';
+                        ageConfirmationCheckbox.checked = false;
+                        // Make parent fields required
+                        document.getElementById('parent_first_name').setAttribute('required', 'required');
+                        document.getElementById('parent_last_name').setAttribute('required', 'required');
+                        document.getElementById('parent_email').setAttribute('required', 'required');
+                        document.getElementById('parent_phone').setAttribute('required', 'required');
+                    }
+                });
+            });
             
             if (planSelect) {
                 planSelect.addEventListener('change', function() {
@@ -59,8 +92,31 @@
             });
             cardElement.mount('#card-element');
 
+            // Form validation before payment processing
+            const originalSubmitHandler = async function(event) {
+                const selectedType = document.querySelector('input[name="registration_type"]:checked');
+                
+                if (!selectedType) {
+                    event.preventDefault();
+                    alert('{{ __('Please select whether you are registering yourself or a child.') }}');
+                    return false;
+                }
+                
+                if (selectedType.value === 'self' && !ageConfirmationCheckbox.checked) {
+                    event.preventDefault();
+                    alert('{{ __('You must confirm that you are 18 years or older to register.') }}');
+                    return false;
+                }
+            };
+            
             // Handle form submission with registration and payment
             registerForm.addEventListener('submit', async function(event) {
+                // First validate registration type and age confirmation
+                const validationResult = originalSubmitHandler(event);
+                if (validationResult === false) {
+                    return;
+                }
+                
                 event.preventDefault();
                 
                 const planId = planSelect ? planSelect.value : null;
@@ -154,6 +210,26 @@
                     }
                 });
             }
+            
+            // Parent phone formatting
+            const parentPhoneInput = document.getElementById('parent_phone');
+            if (parentPhoneInput) {
+                parentPhoneInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    
+                    if (value.length > 10) {
+                        value = value.slice(0, 10);
+                    }
+                    
+                    if (value.length >= 6) {
+                        e.target.value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6);
+                    } else if (value.length >= 3) {
+                        e.target.value = value.slice(0, 3) + '-' + value.slice(3);
+                    } else {
+                        e.target.value = value;
+                    }
+                });
+            }
         });
     </script>
 @endpush
@@ -179,7 +255,120 @@
             @endif
 
             <div class="row">
-                <!-- Personal Information -->
+                <!-- Registration Type Selection -->
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">{{ __('Who are you registering?') }} <span class="text-danger">*</span></h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="radio" name="registration_type" id="type_self" value="self" {{ old('registration_type') == 'self' ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="type_self">
+                                            <strong>{{ __('Myself (I am 18 years or older)') }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ __('Select this if you are registering for yourself') }}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="radio" name="registration_type" id="type_parent" value="parent" {{ old('registration_type') == 'parent' ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="type_parent">
+                                            <strong>{{ __('My Child (I am a parent/guardian)') }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ __('Select this if you are registering a child under 18') }}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            @error('registration_type')
+                                <span class="invalid-feedback d-block" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                            
+                            <!-- Age Confirmation Checkbox (shown only for self-registration) -->
+                            <div id="ageConfirmationDiv" style="display: none;">
+                                <div class="alert alert-info">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="age_confirmation" name="age_confirmation" value="1" {{ old('age_confirmation') ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="age_confirmation">
+                                            <strong>{{ __('I confirm that I am 18 years of age or older') }}</strong> <span class="text-danger">*</span>
+                                        </label>
+                                    </div>
+                                    @error('age_confirmation')
+                                        <span class="invalid-feedback d-block" role="alert">
+                                            <strong>{{ $message }}</strong>
+                                        </span>
+                                    @enderror
+                                </div>
+                            </div>
+                            
+                            <!-- Parent Information (shown only for parent registration) -->
+                            <div id="parentInfoDiv" style="display: none;">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-info-circle"></i> {{ __('Please provide parent/guardian information below') }}
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-floating mb-3">
+                                            {{ Form::text('parent_first_name', old('parent_first_name'), ['class' => 'form-control', 'id' => 'parent_first_name', 'placeholder' => __('Parent First Name')]) }}
+                                            <label for="parent_first_name">{{ __('Parent/Guardian First Name') }} <span class="text-danger">*</span></label>
+                                            @error('parent_first_name')
+                                                <span class="invalid-feedback d-block" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating mb-3">
+                                            {{ Form::text('parent_last_name', old('parent_last_name'), ['class' => 'form-control', 'id' => 'parent_last_name', 'placeholder' => __('Parent Last Name')]) }}
+                                            <label for="parent_last_name">{{ __('Parent/Guardian Last Name') }} <span class="text-danger">*</span></label>
+                                            @error('parent_last_name')
+                                                <span class="invalid-feedback d-block" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating mb-3">
+                                            {{ Form::email('parent_email', old('parent_email'), ['class' => 'form-control', 'id' => 'parent_email', 'placeholder' => __('Parent Email')]) }}
+                                            <label for="parent_email">{{ __('Parent/Guardian Email') }} <span class="text-danger">*</span></label>
+                                            @error('parent_email')
+                                                <span class="invalid-feedback d-block" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating mb-3">
+                                            {{ Form::text('parent_phone', old('parent_phone'), ['class' => 'form-control', 'id' => 'parent_phone', 'placeholder' => __('Parent Phone'), 'maxlength' => '12']) }}
+                                            <label for="parent_phone">{{ __('Parent/Guardian Phone') }} <span class="text-danger">*</span></label>
+                                            <small class="form-text text-muted">{{ __('No need to input the dashes.') }}</small>
+                                            @error('parent_phone')
+                                                <span class="invalid-feedback d-block" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member Information -->
+                <div class="col-md-12">
+                    <h5 class="mb-3">{{ __('Member Information') }}</h5>
+                </div>
+                
                 <div class="col-md-6">
                     <div class="form-floating mb-3">
                         {{ Form::text('first_name', old('first_name'), ['class' => 'form-control', 'id' => 'first_name', 'placeholder' => __('First Name'), 'required' => 'required']) }}

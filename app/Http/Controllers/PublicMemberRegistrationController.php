@@ -392,6 +392,59 @@ class PublicMemberRegistrationController extends Controller
         }
         
         try {
+            $paymentStatus = 'Pending';
+            $membershipStatus = 'Pending';
+            $transactionId = null;
+            
+            // Process Stripe payment if selected
+            if ($request->payment_method === 'stripe' && $request->has('stripe_token')) {
+                $settings = invoicePaymentSettings(2);
+                
+                if ($settings['STRIPE_PAYMENT'] == 'on' && !empty($settings['STRIPE_SECRET'])) {
+                    \Stripe\Stripe::setApiKey($settings['STRIPE_SECRET']);
+                    
+                    // Calculate total amount
+                    $totalAmount = 0;
+                    if ($registrationData['registration_type'] === 'parent') {
+                        foreach ($registrationData['children'] as $childData) {
+                            if (!empty($childData['plan_id'])) {
+                                $plan = MembershipPlan::find($childData['plan_id']);
+                                if ($plan) {
+                                    $totalAmount += $plan->price;
+                                }
+                            }
+                        }
+                    } else {
+                        $plan = MembershipPlan::find($registrationData['plan_id']);
+                        if ($plan) {
+                            $totalAmount = $plan->price;
+                        }
+                    }
+                    
+                    try {
+                        $charge = \Stripe\Charge::create([
+                            'amount' => $totalAmount * 100, // Convert to cents
+                            'currency' => $settings['CURRENCY'] ?? 'usd',
+                            'source' => $request->stripe_token,
+                            'description' => 'Membership Registration Payment',
+                        ]);
+                        
+                        if ($charge->status === 'succeeded') {
+                            $paymentStatus = 'Paid';
+                            $membershipStatus = 'Active';
+                            $transactionId = $charge->id;
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Stripe payment error: ' . $e->getMessage());
+                        return redirect()->back()
+                            ->with('error', __('Payment failed: ') . $e->getMessage());
+                    }
+                }
+            } elseif ($request->payment_method === 'bank_transfer') {
+                $paymentStatus = 'Pending';
+                $membershipStatus = 'Pending';
+            }
+            
             // Create children and memberships after successful payment
             if ($registrationData['registration_type'] === 'parent') {
                 $parentMember = Member::find($registrationData['parent_member_id']);
@@ -426,7 +479,7 @@ class PublicMemberRegistrationController extends Controller
                             $membership->plan_id = $childData['plan_id'];
                             $membership->start_date = now()->format('Y-m-d');
                             $membership->expiry_date = $this->calculateExpiryDate($plan->duration);
-                            $membership->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Active';
+                            $membership->status = $membershipStatus;
                             $membership->parent_id = 2;
                             $membership->save();
                             
@@ -437,8 +490,9 @@ class PublicMemberRegistrationController extends Controller
                             $payment->plan_id = $childData['plan_id'];
                             $payment->amount = $plan->price;
                             $payment->payment_method = $request->payment_method ?? 'bank_transfer';
-                            $payment->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Paid';
+                            $payment->status = $paymentStatus;
                             $payment->payment_date = now();
+                            $payment->transaction_id = $transactionId;
                             $payment->parent_id = 2;
                             $payment->save();
                         }
@@ -457,7 +511,7 @@ class PublicMemberRegistrationController extends Controller
                     $membership->plan_id = $plan->plan_id;
                     $membership->start_date = now()->format('Y-m-d');
                     $membership->expiry_date = $this->calculateExpiryDate($plan->duration);
-                    $membership->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Active';
+                    $membership->status = $membershipStatus;
                     $membership->parent_id = 2;
                     $membership->save();
                     
@@ -468,8 +522,9 @@ class PublicMemberRegistrationController extends Controller
                     $payment->plan_id = $plan->plan_id;
                     $payment->amount = $plan->price;
                     $payment->payment_method = $request->payment_method ?? 'bank_transfer';
-                    $payment->status = $request->payment_method === 'bank_transfer' ? 'Pending' : 'Paid';
+                    $payment->status = $paymentStatus;
                     $payment->payment_date = now();
+                    $payment->transaction_id = $transactionId;
                     $payment->parent_id = 2;
                     $payment->save();
                     

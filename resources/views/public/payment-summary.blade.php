@@ -141,6 +141,44 @@
                                 </div>
                             </div>
 
+                            <!-- Stripe Card Details (shown when selected) -->
+                            @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on')
+                            <div id="stripeCardDetails" style="display: none;" class="mb-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="mb-3">{{ __('Enter Card Details') }}</h6>
+                                        <div class="form-group mb-3">
+                                            <label>{{ __('Cardholder Name') }}</label>
+                                            <input type="text" class="form-control" id="cardholder_name" placeholder="{{ __('Name on card') }}" required>
+                                        </div>
+                                        <div class="form-group mb-3">
+                                            <label>{{ __('Card Information') }}</label>
+                                            <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;">
+                                                <!-- Stripe Card Element will be inserted here -->
+                                            </div>
+                                            <div id="card-errors" class="text-danger mt-2" role="alert"></div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label>{{ __('Billing ZIP/Postal Code') }}</label>
+                                                <input type="text" class="form-control" id="billing_postal_code" placeholder="{{ __('ZIP Code') }}">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label>{{ __('Country') }}</label>
+                                                <input type="text" class="form-control" id="billing_country" placeholder="{{ __('Country') }}">
+                                            </div>
+                                        </div>
+                                        <div class="alert alert-info">
+                                            <i class="ti ti-lock"></i>
+                                            <small>{{ __('Your payment information is secure and encrypted') }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            <input type="hidden" name="stripe_token" id="stripe_token">
+
                             <div class="d-flex justify-content-between">
                                 <a href="{{ route('public.register') }}" class="btn btn-secondary">
                                     <i class="ti ti-arrow-left"></i> {{ __('Back to Registration') }}
@@ -159,14 +197,70 @@
 
     <script src="{{ asset('assets/js/plugins/jquery.min.js') }}"></script>
     <script src="{{ asset('assets/js/plugins/bootstrap.min.js') }}"></script>
+    @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on')
+    <script src="https://js.stripe.com/v3/"></script>
+    @endif
+    
     <script>
         $(document).ready(function() {
-            // Show/hide bank transfer details
+            let stripe = null;
+            let cardElement = null;
+
+            @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' && !empty($invoicePaymentSettings['STRIPE_KEY']))
+            // Initialize Stripe
+            stripe = Stripe('{{ $invoicePaymentSettings['STRIPE_KEY'] }}');
+            const elements = stripe.elements();
+            
+            // Create card element
+            const style = {
+                base: {
+                    fontSize: '16px',
+                    color: '#32325d',
+                    fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                    '::placeholder': {
+                        color: '#aab7c4'
+                    }
+                },
+                invalid: {
+                    color: '#fa755a',
+                    iconColor: '#fa755a'
+                }
+            };
+            
+            cardElement = elements.create('card', {style: style});
+            @endif
+
+            // Show/hide payment method details
             $('input[name="payment_method"]').on('change', function() {
-                if ($(this).val() === 'bank_transfer') {
+                const method = $(this).val();
+                
+                // Hide all payment details
+                $('#bankTransferDetails').slideUp();
+                $('#stripeCardDetails').slideUp();
+                
+                // Show relevant payment details
+                if (method === 'bank_transfer') {
                     $('#bankTransferDetails').slideDown();
-                } else {
-                    $('#bankTransferDetails').slideUp();
+                } else if (method === 'stripe') {
+                    $('#stripeCardDetails').slideDown();
+                    
+                    // Mount Stripe card element if not already mounted
+                    @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' && !empty($invoicePaymentSettings['STRIPE_KEY']))
+                    if (cardElement && !cardElement._mounted) {
+                        cardElement.mount('#card-element');
+                        cardElement._mounted = true;
+                        
+                        // Handle real-time validation errors
+                        cardElement.on('change', function(event) {
+                            const displayError = document.getElementById('card-errors');
+                            if (event.error) {
+                                displayError.textContent = event.error.message;
+                            } else {
+                                displayError.textContent = '';
+                            }
+                        });
+                    }
+                    @endif
                 }
             });
 
@@ -174,6 +268,59 @@
             $('input[name="payment_method"]').on('change', function() {
                 $('.payment-method-card').removeClass('border-primary');
                 $(this).closest('.payment-method-card').addClass('border-primary border-2');
+            });
+
+            // Handle form submission
+            $('#paymentForm').on('submit', function(e) {
+                const paymentMethod = $('input[name="payment_method"]:checked').val();
+                
+                if (paymentMethod === 'stripe') {
+                    e.preventDefault();
+                    
+                    @if($invoicePaymentSettings['STRIPE_PAYMENT'] == 'on' && !empty($invoicePaymentSettings['STRIPE_KEY']))
+                    // Disable submit button
+                    const submitBtn = $(this).find('button[type="submit"]');
+                    submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>{{ __("Processing...") }}');
+                    
+                    // Create payment method with Stripe
+                    const cardholderName = $('#cardholder_name').val();
+                    const billingDetails = {
+                        name: cardholderName,
+                        address: {
+                            postal_code: $('#billing_postal_code').val() || null,
+                            country: $('#billing_country').val() || null
+                        }
+                    };
+                    
+                    stripe.createPaymentMethod({
+                        type: 'card',
+                        card: cardElement,
+                        billing_details: billingDetails
+                    }).then(function(result) {
+                        if (result.error) {
+                            // Show error
+                            $('#card-errors').text(result.error.message);
+                            submitBtn.prop('disabled', false).html('<i class="ti ti-check"></i> {{ __("Complete Payment") }}');
+                        } else {
+                            // Create token for backend processing
+                            stripe.createToken(cardElement).then(function(tokenResult) {
+                                if (tokenResult.error) {
+                                    $('#card-errors').text(tokenResult.error.message);
+                                    submitBtn.prop('disabled', false).html('<i class="ti ti-check"></i> {{ __("Complete Payment") }}');
+                                } else {
+                                    // Add token to form and submit
+                                    $('#stripe_token').val(tokenResult.token.id);
+                                    $('#paymentForm')[0].submit();
+                                }
+                            });
+                        }
+                    });
+                    @else
+                    alert('{{ __("Stripe is not properly configured") }}');
+                    return false;
+                    @endif
+                }
+                // For bank transfer and PayPal, allow normal form submission
             });
         });
     </script>

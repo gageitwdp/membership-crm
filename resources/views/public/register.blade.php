@@ -124,8 +124,8 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-floating mb-3">
-                                        <input type="email" name="children[${childIndex}][email]" class="form-control" placeholder="{{ __('Email') }}">
-                                        <label>{{ __('Email') }}</label>
+                                        <input type="email" name="children[${childIndex}][email]" class="form-control" placeholder="{{ __('Email') }}" required>
+                                        <label>{{ __('Email') }} <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">

@@ -64,6 +64,7 @@ class PublicMemberRegistrationController extends Controller
             $rules['children'] = 'required|array|min:1';
             $rules['children.*.first_name'] = 'required|string|max:255';
             $rules['children.*.last_name'] = 'required|string|max:255';
+            $rules['children.*.email'] = 'required|email|unique:users,email';
             $rules['children.*.dob'] = 'required|date';
             $rules['children.*.gender'] = 'required|in:Male,Female';
             $rules['children.*.plan_id'] = 'nullable|exists:membership_plans,id';
@@ -74,6 +75,9 @@ class PublicMemberRegistrationController extends Controller
             $messages['children.required'] = __('You must add at least one child.');
             $messages['children.*.first_name.required'] = __('Child first name is required.');
             $messages['children.*.last_name.required'] = __('Child last name is required.');
+            $messages['children.*.email.required'] = __('Child email is required.');
+            $messages['children.*.email.email'] = __('Child email must be a valid email address.');
+            $messages['children.*.email.unique'] = __('This email is already registered.');
             $messages['children.*.dob.required'] = __('Child date of birth is required.');
             $messages['children.*.gender.required'] = __('Child gender is required.');
         }

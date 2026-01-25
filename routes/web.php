@@ -52,6 +52,9 @@ Route::middleware(['XSS'])->group(function () {
     Route::post('register-member', [PublicMemberRegistrationController::class, 'store'])->name('public.register.store');
     Route::get('register-member/payment-summary', [PublicMemberRegistrationController::class, 'showPaymentSummary'])->name('public.register.payment.summary');
     Route::post('register-member/payment', [PublicMemberRegistrationController::class, 'processPayment'])->name('public.register.payment');
+    Route::get('register-member/payment', function() {
+        return redirect()->route('public.register.payment.summary')->with('error', __('Please use the payment form to complete your registration.'));
+    });
     Route::get('register-success', [PublicMemberRegistrationController::class, 'success'])->name('public.register.success');
 });
 

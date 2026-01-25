@@ -289,11 +289,7 @@
                     // Create payment method with Stripe
                     const cardholderName = $('#cardholder_name').val();
                     const billingDetails = {
-                        name: cardholderName,
-                        address: {
-                            postal_code: $('#billing_postal_code').val() || null,
-                            country: $('#billing_country').val() || null
-                        }
+                        name: cardholderName
                     };
                     
                     stripe.createPaymentMethod({

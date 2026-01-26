@@ -124,8 +124,9 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-floating mb-3">
-                                        <input type="email" name="children[${childIndex}][email]" class="form-control" placeholder="{{ __('Email') }}" required>
+                                        <input type="email" name="children[${childIndex}][email]" class="form-control child-email" placeholder="{{ __('Email') }}" required data-child-index="${childIndex}">
                                         <label>{{ __('Email') }} <span class="text-danger">*</span></label>
+                                        <div class="invalid-feedback d-none" id="child-email-error-${childIndex}"></div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -195,6 +196,35 @@
                         input.addEventListener('input', formatPhoneNumber);
                     }
                 });
+                
+                // Add email validation to new child email field
+                const newEmailInputs = document.querySelectorAll('.child-email');
+                newEmailInputs.forEach(input => {
+                    if (!input.dataset.validated) {
+                        input.dataset.validated = 'true';
+                        input.addEventListener('blur', async function() {
+                            const email = this.value.trim();
+                            const childIndex = this.dataset.childIndex;
+                            const errorDiv = document.getElementById(`child-email-error-${childIndex}`);
+                            
+                            if (email) {
+                                const result = await validateEmail(email);
+                                if (result.exists) {
+                                    this.classList.add('is-invalid');
+                                    if (errorDiv) {
+                                        errorDiv.textContent = '{{ __('This email is already registered. Please use a different email.') }}';
+                                        errorDiv.classList.remove('d-none');
+                                    }
+                                } else {
+                                    this.classList.remove('is-invalid');
+                                    if (errorDiv) {
+                                        errorDiv.classList.add('d-none');
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
             }
             
             // Function to format phone numbers
@@ -249,6 +279,69 @@
                 });
             }
 
+            // Email validation function
+            async function validateEmail(email) {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                
+                try {
+                    const response = await fetch('{{ route("public.register.check-email") }}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    return result;
+                } catch (error) {
+                    console.error('Email validation error:', error);
+                    return { exists: false };
+                }
+            }
+            
+            // Validate all child emails
+            async function validateChildEmails() {
+                const childEmailInputs = document.querySelectorAll('.child-email');
+                let allValid = true;
+                
+                for (const input of childEmailInputs) {
+                    const email = input.value.trim();
+                    const childIndex = input.dataset.childIndex;
+                    const errorDiv = document.getElementById(`child-email-error-${childIndex}`);
+                    
+                    if (!email) {
+                        input.classList.add('is-invalid');
+                        if (errorDiv) {
+                            errorDiv.textContent = '{{ __('Child email is required.') }}';
+                            errorDiv.classList.remove('d-none');
+                        }
+                        allValid = false;
+                        continue;
+                    }
+                    
+                    const result = await validateEmail(email);
+                    
+                    if (result.exists) {
+                        input.classList.add('is-invalid');
+                        if (errorDiv) {
+                            errorDiv.textContent = '{{ __('This email is already registered. Please use a different email.') }}';
+                            errorDiv.classList.remove('d-none');
+                        }
+                        allValid = false;
+                    } else {
+                        input.classList.remove('is-invalid');
+                        if (errorDiv) {
+                            errorDiv.classList.add('d-none');
+                        }
+                    }
+                }
+                
+                return allValid;
+            }
+            
             // Global form validation for registration type and age confirmation
             function validateRegistrationType() {
                 const selectedType = document.querySelector('input[name="registration_type"]:checked');
@@ -290,13 +383,31 @@
 
             // Handle form submission with registration and payment
             registerForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
                 // First validate registration type and age confirmation
                 if (!validateRegistrationType()) {
-                    event.preventDefault();
                     return false;
                 }
                 
-                event.preventDefault();
+                // Validate child emails if parent registration
+                const selectedType = document.querySelector('input[name="registration_type"]:checked');
+                if (selectedType && selectedType.value === 'parent') {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ __('Validating...') }}';
+                    
+                    const emailsValid = await validateChildEmails();
+                    
+                    if (!emailsValid) {
+                        alert('{{ __('Please fix the child email errors before proceeding.') }}');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<span id="submit-text">{{ __('Register') }}</span>';
+                        return false;
+                    }
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span id="submit-text">{{ __('Register') }}</span>';
+                }
                 
                 const planId = planSelect ? planSelect.value : null;
                 
@@ -370,11 +481,34 @@
             });
             @else
             // No Stripe - add simple validation for non-payment forms
-            registerForm.addEventListener('submit', function(event) {
+            registerForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                
                 if (!validateRegistrationType()) {
-                    event.preventDefault();
                     return false;
                 }
+                
+                // Validate child emails if parent registration
+                const selectedType = document.querySelector('input[name="registration_type"]:checked');
+                if (selectedType && selectedType.value === 'parent') {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> {{ __('Validating...') }}';
+                    
+                    const emailsValid = await validateChildEmails();
+                    
+                    if (!emailsValid) {
+                        alert('{{ __('Please fix the child email errors before proceeding.') }}');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<span id="submit-text">{{ __('Register') }}</span>';
+                        return false;
+                    }
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span id="submit-text">{{ __('Register') }}</span>';
+                }
+                
+                // All validations passed, submit the form
+                registerForm.submit();
             });
             @endif
 

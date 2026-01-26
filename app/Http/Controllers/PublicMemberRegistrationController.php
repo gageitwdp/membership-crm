@@ -15,297 +15,315 @@ use Spatie\Permission\Models\Role;
 class PublicMemberRegistrationController extends Controller
 {
     /**
-     * Show the public registration form
+     * Step 1: Show parent/guardian information form
      */
-    public function create()
+    public function showStep1()
     {
-        // Get available membership plans for user ID 2 (owner)
-        $membershipPlans = MembershipPlan::where('parent_id', 2)->get();
+        // Only clear session data if not coming from a successful registration
+        // This prevents clearing data when users refresh or navigate after completing registration
+        if (!session('registration_just_completed')) {
+            session()->forget(['registration_step1', 'registration_step2', 'registration_step3', 'registration_data', 'registration_form_data']);
+        } else {
+            // Clear the completion flag but keep showing step 1
+            session()->forget('registration_just_completed');
+        }
         
-        // Get registration form data from session if user is returning from payment page
-        $formData = session('registration_form_data', []);
-        
-        return view('public.register', compact('membershipPlans', 'formData'));
+        return view('public.register-step1');
     }
 
     /**
-     * Handle the public registration submission
+     * Step 1: Process parent/guardian information
      */
-    public function store(Request $request)
+    public function processStep1(Request $request)
     {
-        // Build validation rules conditionally based on registration type
         $rules = [
-            'registration_type' => 'required|in:self,parent',
+            'parent_first_name' => 'required|string|max:255',
+            'parent_last_name' => 'required|string|max:255',
+            'parent_email' => 'required|email|unique:users,email',
+            'parent_phone' => 'required|string',
             'password' => 'required|string|min:6|confirmed',
         ];
 
         $messages = [
-            'registration_type.required' => __('Please select whether you are registering yourself or a child.'),
+            'parent_first_name.required' => __('Parent/Guardian first name is required.'),
+            'parent_last_name.required' => __('Parent/Guardian last name is required.'),
+            'parent_email.required' => __('Parent/Guardian email is required.'),
+            'parent_email.unique' => __('This email is already registered.'),
+            'parent_phone.required' => __('Parent/Guardian phone is required.'),
+            'password.required' => __('Password is required.'),
+            'password.confirmed' => __('Password confirmation does not match.'),
         ];
 
-        // Add conditional validation based on registration type
-        if ($request->registration_type === 'self') {
-            $rules['age_confirmation'] = 'required|accepted';
-            $rules['first_name'] = 'required|string|max:255';
-            $rules['last_name'] = 'required|string|max:255';
-            $rules['email'] = 'required|email|unique:users,email';
-            $rules['phone'] = 'required|string';
-            $rules['dob'] = 'required|date';
-            $rules['address'] = 'required|string';
-            $rules['gender'] = 'required|in:Male,Female';
-            $rules['plan_id'] = 'nullable|exists:membership_plans,id';
-            $messages['age_confirmation.required'] = __('You must confirm that you are 18 years or older to register yourself.');
-            $messages['age_confirmation.accepted'] = __('You must confirm that you are 18 years or older to register yourself.');
-        } elseif ($request->registration_type === 'parent') {
-            $rules['parent_first_name'] = 'required|string|max:255';
-            $rules['parent_last_name'] = 'required|string|max:255';
-            $rules['parent_email'] = 'required|email|unique:users,email';
-            $rules['parent_phone'] = 'required|string';
-            $rules['children'] = 'required|array|min:1';
-            $rules['children.*.first_name'] = 'required|string|max:255';
-            $rules['children.*.last_name'] = 'required|string|max:255';
-            $rules['children.*.email'] = 'required|email|unique:users,email';
-            $rules['children.*.dob'] = 'required|date';
-            $rules['children.*.gender'] = 'required|in:Male,Female';
-            $rules['children.*.plan_id'] = 'nullable|exists:membership_plans,id';
-            $messages['parent_first_name.required'] = __('Parent/Guardian first name is required when registering a child.');
-            $messages['parent_last_name.required'] = __('Parent/Guardian last name is required when registering a child.');
-            $messages['parent_email.required'] = __('Parent/Guardian email is required when registering a child.');
-            $messages['parent_phone.required'] = __('Parent/Guardian phone is required when registering a child.');
-            $messages['children.required'] = __('You must add at least one child.');
-            $messages['children.*.first_name.required'] = __('Child first name is required.');
-            $messages['children.*.last_name.required'] = __('Child last name is required.');
-            $messages['children.*.email.required'] = __('Child email is required.');
-            $messages['children.*.email.email'] = __('Child email must be a valid email address.');
-            $messages['children.*.email.unique'] = __('This email is already registered.');
-            $messages['children.*.dob.required'] = __('Child date of birth is required.');
-            $messages['children.*.gender.required'] = __('Child gender is required.');
-        }
-
-        $validator = \Validator::make(
-            $request->all(),
-            $rules,
-            $messages
-        );
+        $validator = \Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
-            if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => $validator->errors()->first()], 400);
-            }
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
         }
 
+        // Store step 1 data in session
+        session([
+            'registration_step1' => [
+                'parent_first_name' => $request->parent_first_name,
+                'parent_last_name' => $request->parent_last_name,
+                'parent_email' => $request->parent_email,
+                'parent_phone' => $request->parent_phone,
+                'password' => $request->password,
+            ]
+        ]);
+
+        return redirect()->route('public.register.step2');
+    }
+
+    /**
+     * Step 2: Show children information form
+     */
+    public function showStep2()
+    {
+        if (!session('registration_step1')) {
+            return redirect()->route('public.register')
+                ->with('error', __('Please complete step 1 first.'));
+        }
+
+        $membershipPlans = MembershipPlan::where('parent_id', 2)->get();
+        $step1Data = session('registration_step1');
+        $step2Data = session('registration_step2', []);
+        
+        return view('public.register-step2', compact('membershipPlans', 'step1Data', 'step2Data'));
+    }
+
+    /**
+     * Step 2: Process children information
+     */
+    public function processStep2(Request $request)
+    {
+        if (!session('registration_step1')) {
+            return redirect()->route('public.register')
+                ->with('error', __('Please complete step 1 first.'));
+        }
+
+        $rules = [
+            'children' => 'required|array|min:1',
+            'children.*.first_name' => 'required|string|max:255',
+            'children.*.last_name' => 'required|string|max:255',
+            'children.*.email' => 'required|email|unique:users,email',
+            'children.*.dob' => 'required|date',
+            'children.*.gender' => 'required|in:Male,Female',
+            'children.*.plan_id' => 'nullable|exists:membership_plans,id',
+        ];
+
+        $messages = [
+            'children.required' => __('You must add at least one child.'),
+            'children.*.first_name.required' => __('Child first name is required.'),
+            'children.*.last_name.required' => __('Child last name is required.'),
+            'children.*.email.required' => __('Child email is required.'),
+            'children.*.email.email' => __('Child email must be a valid email address.'),
+            'children.*.email.unique' => __('This email is already registered.'),
+            'children.*.dob.required' => __('Child date of birth is required.'),
+            'children.*.gender.required' => __('Child gender is required.'),
+        ];
+
+        $validator = \Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        // Handle file uploads and prepare children data
+        $childrenData = [];
+        foreach ($request->children as $key => $childData) {
+            $imageName = null;
+            if ($request->hasFile("children.{$key}.image")) {
+                $file = $request->file("children.{$key}.image");
+                $extension = $file->getClientOriginalExtension();
+                $imageName = \Str::uuid() . '.' . $extension;
+                $file->storeAs('upload/member/', $imageName);
+            }
+
+            $childrenData[$key] = [
+                'first_name' => $childData['first_name'] ?? '',
+                'last_name' => $childData['last_name'] ?? '',
+                'email' => $childData['email'] ?? '',
+                'phone' => $childData['phone'] ?? '',
+                'dob' => $childData['dob'] ?? '',
+                'gender' => $childData['gender'] ?? '',
+                'address' => $childData['address'] ?? '',
+                'emergency_contact' => $childData['emergency_contact'] ?? '',
+                'plan_id' => $childData['plan_id'] ?? null,
+                'image' => $imageName,
+            ];
+        }
+
+        // Store step 2 data in session
+        session([
+            'registration_step2' => [
+                'children' => $childrenData,
+            ]
+        ]);
+
+        return redirect()->route('public.register.step3');
+    }
+
+    /**
+     * Step 3: Show waiver acceptance form
+     */
+    public function showStep3()
+    {
+        if (!session('registration_step1') || !session('registration_step2')) {
+            return redirect()->route('public.register')
+                ->with('error', __('Please complete all previous steps first.'));
+        }
+
+        $step1Data = session('registration_step1');
+        $step2Data = session('registration_step2');
+        
+        return view('public.register-step3', compact('step1Data', 'step2Data'));
+    }
+
+    /**
+     * Step 3: Process waiver acceptance and create accounts
+     */
+    public function processStep3(Request $request)
+    {
+        if (!session('registration_step1') || !session('registration_step2')) {
+            return redirect()->route('public.register')
+                ->with('error', __('Please complete all previous steps first.'));
+        }
+
+        $rules = [
+            'waiver_accepted' => 'required|accepted',
+        ];
+
+        $messages = [
+            'waiver_accepted.required' => __('You must accept the waiver to continue.'),
+            'waiver_accepted.accepted' => __('You must accept the waiver to continue.'),
+        ];
+
+        $validator = \Validator::make($request->all(), $rules, $messages);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        // Store waiver acceptance
+        session([
+            'registration_step3' => [
+                'waiver_accepted' => true,
+                'waiver_accepted_at' => now()->toDateTimeString(),
+            ]
+        ]);
+
         try {
-            // Get the member role for parent_id = 2
+            $step1Data = session('registration_step1');
+            $step2Data = session('registration_step2');
+
+            // Get the member role
             $userRole = Role::where('name', 'member')
                 ->where('parent_id', 2)
                 ->first();
 
             if (!$userRole) {
-                if ($request->expectsJson()) {
-                    return response()->json(['success' => false, 'message' => __('Member role not found. Please contact the administrator.')], 400);
-                }
                 return redirect()->back()
-                    ->with('error', __('Member role not found. Please contact the administrator.'))
-                    ->withInput();
+                    ->with('error', __('Member role not found. Please contact the administrator.'));
             }
 
-            // Determine account information based on registration type
-            if ($request->registration_type === 'parent') {
-                // Parent registration: Create account with parent's info
-                $accountName = $request->parent_first_name . ' ' . $request->parent_last_name;
-                $accountEmail = $request->parent_email;
-                $accountPhone = $request->parent_phone;
-                $accountFirstName = $request->parent_first_name;
-                $accountLastName = $request->parent_last_name;
-            } else {
-                // Self registration: Create account with member's info
-                $accountName = $request->first_name . ' ' . $request->last_name;
-                $accountEmail = $request->email;
-                $accountPhone = $request->phone;
-                $accountFirstName = $request->first_name;
-                $accountLastName = $request->last_name;
-            }
-
-            // Create User account
+            // Create User account for parent
             $user = new User();
-            $user->name = $accountName;
-            $user->email = $accountEmail;
-            $user->phone_number = $accountPhone;
-            $user->password = Hash::make($request->password);
+            $user->name = $step1Data['parent_first_name'] . ' ' . $step1Data['parent_last_name'];
+            $user->email = $step1Data['parent_email'];
+            $user->phone_number = $step1Data['parent_phone'];
+            $user->password = Hash::make($step1Data['password']);
             $user->type = $userRole->name;
             $user->profile = 'avatar.png';
             $user->lang = 'english';
-            $user->parent_id = 2; // Assigned to owner with ID 2
+            $user->parent_id = 2;
             $user->email_verified_at = now();
             $user->save();
             $user->assignRole($userRole);
 
-            // Create Member record (parent account or self account)
+            // Create Member record for parent
             $member = new Member();
             $member->member_id = $this->generateMemberNumber();
             $member->user_id = $user->id;
-            $member->first_name = $accountFirstName;
-            $member->last_name = $accountLastName;
-            $member->password = Hash::make($request->password);
-            $member->email = $accountEmail;
-            $member->phone = $accountPhone;
-            $member->parent_id = 2; // Assigned to owner with ID 2
-            $member->relationship = $request->registration_type;
-
-            if ($request->registration_type === 'self') {
-                // Self registration: store member's own information
-                $member->dob = $request->dob;
-                $member->address = $request->address;
-                $member->gender = $request->gender;
-                $member->emergency_contact_information = $request->emergency_contact_information;
-                $member->notes = $request->notes;
-                $member->membership_part = !empty($request->plan_id) ? 'on' : 'off';
-                $member->is_parent = 0;
-                $member->relationship = 'self';
-
-                // Handle image upload
-                if ($request->hasFile('image')) {
-                    $extension = $request->file('image')->getClientOriginalExtension();
-                    $name = \Str::uuid() . '.' . $extension;
-                    $request->file('image')->storeAs('upload/member/', $name);
-                    $member->image = $name;
-                }
-            } else {
-                // Parent registration: Mark as parent account
-                $member->is_parent = 1;
-                $member->relationship = 'parent';
-                $member->dob = null;
-                $member->address = $request->address ?? '';
-                $member->gender = null;
-                $member->membership_part = 'off'; // Parents don't have their own membership
-            }
-
+            $member->first_name = $step1Data['parent_first_name'];
+            $member->last_name = $step1Data['parent_last_name'];
+            $member->email = $step1Data['parent_email'];
+            $member->phone = $step1Data['parent_phone'];
+            $member->notes = '';
+            $member->membership_part = 'off';
+            $member->parent_id = 2;
+            $member->is_parent = true;
+            $member->relationship = 'parent';
+            $member->dob = null;
+            $member->address = '';
+            $member->gender = null;
             $member->save();
 
-            // If parent registration with children, check if payment is needed
-            if ($request->registration_type === 'parent' && $request->has('children')) {
-                $hasPlans = false;
-                foreach ($request->children as $childData) {
-                    if (!empty($childData['plan_id'])) {
-                        $hasPlans = true;
-                        break;
-                    }
-                }
-                
-                // If any child has a plan, redirect to payment summary
-                if ($hasPlans) {
-                    // Store registration data in session (including form data for back button)
-                    session([
-                        'registration_data' => [
-                            'user_id' => $user->id,
-                            'parent_member_id' => $member->id,
-                            'parent_password' => $request->password,
-                            'children' => $request->children,
-                            'registration_type' => 'parent'
-                        ],
-                        'registration_form_data' => [
-                            'parent_first_name' => $request->parent_first_name,
-                            'parent_last_name' => $request->parent_last_name,
-                            'parent_email' => $request->parent_email,
-                            'parent_phone' => $request->parent_phone,
-                            'children' => $request->children,
-                            'registration_type' => 'parent'
-                        ]
-                    ]);
-                    
-                    return redirect()->route('public.register.payment.summary');
-                }
-                
-                // No plans selected - create children immediately without payment
-                $children = $request->children;
-                $childrenIds = [];
-                
-                foreach ($children as $childData) {
-                    $child = new Member();
-                    $child->member_id = $this->generateMemberNumber();
-                    $child->user_id = null; // Children do NOT have their own user account - cannot log in
-                    $child->first_name = $childData['first_name'];
-                    $child->last_name = $childData['last_name'];
-                    $child->email = $childData['email'] ?? null;
-                    $child->phone = $childData['phone'] ?? null;
-                    $child->dob = $childData['dob'];
-                    $child->address = $childData['address'] ?? '';
-                    $child->gender = $childData['gender'];
-                    $child->emergency_contact_information = $childData['emergency_contact'] ?? '';
-                    $child->notes = '';
-                    $child->membership_part = !empty($childData['plan_id']) ? 'on' : 'off';
-                    $child->parent_id = 2;
-                    $child->parent_member_id = $member->id; // Link to parent member
-                    $child->is_parent = false;
-                    $child->relationship = 'child';
-
-                    // Handle image upload for child
-                    if ($request->hasFile("children.{$childData['first_name']}.image")) {
-                        $extension = $request->file("children.{$childData['first_name']}.image")->getClientOriginalExtension();
-                        $name = \Str::uuid() . '.' . $extension;
-                        $request->file("children.{$childData['first_name']}.image")->storeAs('upload/member/', $name);
-                        $child->image = $name;
-                    }
-
-                    $child->save();
-                    $childrenIds[] = $child->id;
-                    
-                    // Don't create memberships here - only create child records
-                    // Memberships will be created during payment processing
-                }
-            } else {
-                // Self registration: membership goes to the member
-                $memberForMembership = $member;
-                
-                // Create membership if plan_id is provided
-                if (!empty($request->plan_id)) {
-                    $plan = MembershipPlan::find($request->plan_id);
-                    
-                    if ($plan) {
-                        // Store registration data and redirect to payment
-                        session([
-                            'registration_data' => [
-                                'user_id' => $user->id,
-                                'member_id' => $member->id,
-                                'plan_id' => $request->plan_id,
-                                'registration_type' => 'self'
-                            ],
-                            'registration_form_data' => [
-                                'registration_type' => 'self',
-                                'first_name' => $request->first_name,
-                                'last_name' => $request->last_name,
-                                'email' => $request->email,
-                                'phone' => $request->phone,
-                                'dob' => $request->dob,
-                                'gender' => $request->gender,
-                                'address' => $request->address,
-                                'plan_id' => $request->plan_id,
-                            ]
-                        ]);
-                        
-                        return redirect()->route('public.register.payment.summary');
-                    }
+            // Check if any child has a plan (requires payment)
+            $hasPlans = false;
+            foreach ($step2Data['children'] as $childData) {
+                if (!empty($childData['plan_id'])) {
+                    $hasPlans = true;
+                    break;
                 }
             }
 
-            // Send notification email if configured
+            if ($hasPlans) {
+                // Store registration data for payment processing
+                session([
+                    'registration_data' => [
+                        'user_id' => $user->id,
+                        'parent_member_id' => $member->id,
+                        'parent_password' => $step1Data['password'],
+                        'children' => $step2Data['children'],
+                        'registration_type' => 'parent',
+                        'waiver_accepted' => true,
+                    ]
+                ]);
+
+                return redirect()->route('public.register.payment.summary');
+            }
+
+            // No payment needed - create children immediately
+            foreach ($step2Data['children'] as $key => $childData) {
+                $child = new Member();
+                $child->member_id = $this->generateMemberNumber();
+                $child->user_id = null;
+                $child->first_name = $childData['first_name'];
+                $child->last_name = $childData['last_name'];
+                $child->email = $childData['email'] ?? null;
+                $child->phone = $childData['phone'] ?? null;
+                $child->dob = $childData['dob'];
+                $child->address = $childData['address'] ?? '';
+                $child->gender = $childData['gender'];
+                $child->emergency_contact_information = $childData['emergency_contact'] ?? '';
+                $child->notes = '';
+                $child->membership_part = 'off';
+                $child->parent_id = 2;
+                $child->parent_member_id = $member->id;
+                $child->is_parent = false;
+                $child->relationship = 'child';
+
+                if (!empty($childData['image'])) {
+                    $child->image = $childData['image'];
+                }
+
+                $child->save();
+            }
+
+            // Send notification
             $this->sendRegistrationNotification($member);
 
-            // Clear session data before redirecting to success
-            session()->forget('registration_data');
-            session()->forget('registration_form_data');
-
-            // No payment needed or non-AJAX request
-            if ($request->expectsJson()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => __('Registration successful!'),
-                    'redirect' => route('public.register.success')
-                ]);
-            }
+            // Clear session data
+            session()->forget(['registration_step1', 'registration_step2', 'registration_step3']);
+            
+            // Mark that registration was just completed to prevent session clearing on success page
+            session(['registration_just_completed' => true]);
 
             return redirect()->route('public.register.success')
                 ->with('success', __('Registration successful! You can now log in with your credentials.'));
@@ -313,14 +331,25 @@ class PublicMemberRegistrationController extends Controller
         } catch (\Exception $e) {
             \Log::error('Public member registration error: ' . $e->getMessage());
             
-            if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => __('An error occurred during registration. Please try again.')], 500);
-            }
-            
             return redirect()->back()
-                ->with('error', __('An error occurred during registration. Please try again.'))
-                ->withInput();
+                ->with('error', __('An error occurred during registration. Please try again.'));
         }
+    }
+
+    /**
+     * Check if email already exists (AJAX endpoint)
+     */
+    public function checkEmail(Request $request)
+    {
+        $email = $request->input('email');
+        
+        if (empty($email)) {
+            return response()->json(['exists' => false]);
+        }
+        
+        $exists = User::where('email', $email)->exists();
+        
+        return response()->json(['exists' => $exists]);
     }
 
     /**
@@ -330,10 +359,6 @@ class PublicMemberRegistrationController extends Controller
     {
         return view('public.register-success');
     }
-
-    /**
-     * Show payment summary page
-     */
     public function showPaymentSummary()
     {
         $registrationData = session('registration_data');
@@ -501,6 +526,12 @@ class PublicMemberRegistrationController extends Controller
                     $child->parent_member_id = $parentMember->id;
                     $child->is_parent = 0;
                     $child->relationship = 'child';
+                    
+                    // Use pre-uploaded image filename if available
+                    if (!empty($childData['image'])) {
+                        $child->image = $childData['image'];
+                    }
+                    
                     $child->save();
                     
                     // Store credentials for parent notification

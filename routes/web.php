@@ -48,13 +48,18 @@ require __DIR__ . '/auth.php';
 
 // Public Member Registration Routes (no authentication required)
 Route::middleware(['XSS'])->group(function () {
-    Route::get('register-member', [PublicMemberRegistrationController::class, 'create'])->name('public.register');
-    Route::post('register-member', [PublicMemberRegistrationController::class, 'store'])->name('public.register.store');
+    // Multi-step registration
+    Route::get('register-member', [PublicMemberRegistrationController::class, 'showStep1'])->name('public.register');
+    Route::post('register-member/step-1', [PublicMemberRegistrationController::class, 'processStep1'])->name('public.register.step1');
+    Route::get('register-member/step-2', [PublicMemberRegistrationController::class, 'showStep2'])->name('public.register.step2');
+    Route::post('register-member/step-2', [PublicMemberRegistrationController::class, 'processStep2'])->name('public.register.step2.post');
+    Route::get('register-member/step-3', [PublicMemberRegistrationController::class, 'showStep3'])->name('public.register.step3');
+    Route::post('register-member/step-3', [PublicMemberRegistrationController::class, 'processStep3'])->name('public.register.step3.post');
     Route::get('register-member/payment-summary', [PublicMemberRegistrationController::class, 'showPaymentSummary'])->name('public.register.payment.summary');
     Route::post('register-member/payment', [PublicMemberRegistrationController::class, 'processPayment'])->name('public.register.payment');
-    Route::get('register-member/payment', function() {
-        return redirect()->route('public.register.payment.summary')->with('error', __('Please use the payment form to complete your registration.'));
-    });
+    
+    // Helper routes
+    Route::post('register-member/check-email', [PublicMemberRegistrationController::class, 'checkEmail'])->name('public.register.check-email');
     Route::get('register-success', [PublicMemberRegistrationController::class, 'success'])->name('public.register.success');
 });
 
